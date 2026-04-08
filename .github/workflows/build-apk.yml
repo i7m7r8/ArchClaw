@@ -7,7 +7,6 @@ on:
     branches: [main, master]
 
 jobs:
-  # Job 1: Build Rust libraries
   build-rust:
     name: Build Rust Core (aarch64)
     runs-on: ubuntu-22.04
@@ -21,8 +20,13 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Install build deps
-        run: sudo apt-get update && sudo apt-get install -y llvm lld pkg-config libssl-dev
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          sdkmanager "ndk;27.0.12077973"
+          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> $GITHUB_ENV
 
       - name: Cache Rust deps
         uses: Swatinem/rust-cache@v2
@@ -31,7 +35,16 @@ jobs:
 
       - name: Build Rust for Android ARM64
         run: |
-          cd rust/core
+          cd rust
+          # Configure NDK linker via cargo config
+          mkdir -p .cargo
+          cat > .cargo/config.toml <<CARGO
+          [target.aarch64-linux-android]
+          linker = "${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          ar = "${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          CARGO
+          cat .cargo/config.toml
+          cd core
           cargo build --release --target aarch64-linux-android
           echo "=== Built .so files ==="
           find target/aarch64-linux-android/release -name "*.so" -exec ls -lh {} \;
@@ -43,10 +56,9 @@ jobs:
           path: rust/core/target/aarch64-linux-android/release/*.so
           if-no-files-found: warn
 
-      - name: Run Rust tests
+      - name: Run Rust tests (host)
         run: cd rust/core && cargo test || true
 
-  # Job 2: Build Android APK (depends on Rust)
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
@@ -78,7 +90,6 @@ jobs:
         with:
           name: rust-lib-aarch64
           path: android/app/src/main/jniLibs/arm64-v8a/
-        continue-on-error: true
 
       - name: Show JNI libs
         run: find android/app/src/main/jniLibs/ -type f 2>/dev/null || echo "No JNI libs"

@@ -67,7 +67,6 @@ dependencies {
     implementation("androidx.webkit:webkit:1.9.0")
 
     // Terminal
-    implementation("com.github.mitchellh:go-wordwrap:v1.0.1")
 
     // Networking (for downloading rootfs)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

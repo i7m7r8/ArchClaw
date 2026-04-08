@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-android:
-    name: Build Android APK
+    name: Build Flutter APK
     runs-on: ubuntu-22.04
     
     steps:
@@ -36,10 +36,38 @@ jobs:
       - name: Fetch proot binaries from Termux
         run: |
           chmod +x scripts/fetch-proot-binaries.sh
-          ./scripts/fetch-proot-binaries.sh
+          # The script puts files in android/app/src/main/jniLibs
+          # but Flutter project has them in flutter_app/android/app/src/main/jniLibs
+          JNILIBS="flutter_app/android/app/src/main/jniLibs"
+          mkdir -p "$JNILIBS"
+          # Run the fetch script targeting the Flutter jniLibs
+          sed "s|flutter_app/android/app/src/main/jniLibs|android/app/src/main/jniLibs|g" scripts/fetch-proot-binaries.sh | bash -c '
+            JNILIBS_DIR="flutter_app/android/app/src/main/jniLibs"
+            TMP_DIR=$(mktemp -d)
+            trap "rm -rf $TMP_DIR" EXIT
+            TERMUX_REPO="https://packages-cf.termux.dev/apt/termux-main"
+            for entry in "arm64-v8a:aarch64"; do
+              IFS=":" read -r abi deb_arch <<< "$entry"
+              out_dir="$JNILIBS_DIR/$abi"
+              mkdir -p "$out_dir"
+              pkg_url=$(curl -fsSL "${TERMUX_REPO}/dists/stable/main/binary-${deb_arch}/Packages" | grep -A 20 "^Package: proot$" | grep "^Filename:" | head -1 | awk "{print \$2}")
+              [ -z "$pkg_url" ] && continue
+              curl -fsSL "${TERMUX_REPO}/${pkg_url}" -o "$TMP_DIR/proot.deb"
+              cd "$TMP_DIR" && ar x proot.deb && tar xf data.tar.xz 2>/dev/null || tar xf data.tar.gz 2>/dev/null
+              proot_bin=$(find . -name "proot" -path "*/bin/*" -type f | head -1)
+              [ -n "$proot_bin" ] && cp "$proot_bin" "$out_dir/libproot.so" && chmod 755 "$out_dir/libproot.so"
+              loader=$(find . -name "loader" -not -name "loader32" -path "*/proot/*" -type f | head -1)
+              [ -n "$loader" ] && cp "$loader" "$out_dir/libprootloader.so" && chmod 755 "$out_dir/libprootloader.so"
+              loader32=$(find . -name "loader32" -path "*/proot/*" -type f | head -1)
+              [ -n "$loader32" ] && cp "$loader32" "$out_dir/libprootloader32.so" && chmod 755 "$out_dir/libprootloader32.so"
+              talloc=$(find . -name "libtalloc.so*" -not -name "*.py" -type f | head -1)
+              [ -n "$talloc" ] && cp -L "$talloc" "$out_dir/libtalloc.so" && chmod 755 "$out_dir/libtalloc.so"
+              echo "Fetched $abi: $(ls "$out_dir"/ | tr "\n" " ")"
+            done
+          '
 
       - name: Show jniLibs
-        run: find android/app/src/main/jniLibs/ -type f 2>/dev/null || echo "No jniLibs"
+        run: find flutter_app/android/app/src/main/jniLibs/ -type f 2>/dev/null || echo "No jniLibs"
 
       - name: Flutter pub get
         run: |
@@ -51,7 +79,7 @@ jobs:
           cd flutter_app
           flutter build apk --release --target-platform android-arm64
 
-      - name: Upload Debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: archclaw-release

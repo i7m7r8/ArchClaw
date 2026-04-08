@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+import '../app.dart';
+
+class ProgressStep extends StatelessWidget {
+  final int stepNumber;
+  final String label;
+  final bool isActive;
+  final bool isComplete;
+  final bool hasError;
+  final double? progress;
+
+  const ProgressStep({
+    super.key,
+    required this.stepNumber,
+    required this.label,
+    this.isActive = false,
+    this.isComplete = false,
+    this.hasError = false,
+    this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Color circleColor;
+    Widget circleChild;
+
+    if (hasError) {
+      circleColor = theme.colorScheme.error;
+      circleChild = const Icon(Icons.close, color: Colors.white, size: 16);
+    } else if (isComplete) {
+      circleColor = AppColors.statusGreen;
+      circleChild = const Icon(Icons.check, color: Colors.white, size: 16);
+    } else if (isActive) {
+      circleColor = theme.colorScheme.primary;
+      // Use indeterminate (spinning) when progress is 0 so the UI doesn't
+      // appear frozen during long-running steps (#83).
+      final effectiveProgress = (progress != null && progress! > 0.0) ? progress : null;
+      circleChild = SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white,
+          value: effectiveProgress,
+        ),
+      );
+    } else {
+      circleColor = theme.colorScheme.surfaceContainerHighest;
+      circleChild = Text(
+        '$stepNumber',
+        style: TextStyle(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: circleColor,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: circleChild,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    color: isActive
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if (isActive && progress != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: LinearProgressIndicator(
+                      // Show indeterminate animation when progress is 0 (#83)
+                      value: progress! > 0.0 ? progress : null,
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  if (progress! > 0.0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '${(progress! * 100).toInt()}%',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

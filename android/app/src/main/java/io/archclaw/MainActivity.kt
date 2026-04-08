@@ -89,7 +89,7 @@ class MainActivity : AppCompatActivity() {
         if (toolId in qwenTools) {
             val token = app.getQwenOAuthToken()
             if (token == null || app.isQwenOAuthExpired()) {
-                Toast.makeText(this, "Login with Qwen first", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Import token first: run setup-qwen-token.sh in Termux", Toast.LENGTH_LONG).show()
                 startOAuth()
                 return
             }

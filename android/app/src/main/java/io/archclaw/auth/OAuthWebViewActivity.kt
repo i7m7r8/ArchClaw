@@ -1,66 +1,103 @@
 package io.archclaw.auth
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.Gson
 import io.archclaw.ArchClawApp
-import java.io.File
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 /**
- * OAuth Activity - Reads real Qwen Code OAuth token from Termux
+ * OAuth Activity - Imports Qwen Code OAuth token
  * 
- * Qwen Code saves OAuth creds at:
- * ~/.qwen/oauth_creds.json
- * 
- * We read it directly and use it for all AI tools.
+ * Since Android sandbox prevents reading Termux's private directory,
+ * we use Storage Access Framework to let user select oauth_creds.json
+ * from Termux home via Android's file picker.
  */
 class OAuthWebViewActivity : AppCompatActivity() {
 
-    companion object {
-        private const val QWEN_CREDS_PATH = "/data/data/com.termux/files/home/.qwen/oauth_creds.json"
+    private val filePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            readTokenFromUri(uri)
+        } else {
+            Toast.makeText(this, "No file selected", Toast.LENGTH_SHORT).show()
+            setResult(Activity.RESULT_CANCELED)
+            finish()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Try to read existing Qwen Code token first
-        if (tryReadQwenCodeToken()) {
-            return
-        }
+        // Try shared storage first
+        if (tryReadFromSharedStorage()) return
 
-        // No token found - show error
-        Toast.makeText(this, "No Qwen token found. Run 'qwen' in Termux first.", Toast.LENGTH_LONG).show()
-        setResult(Activity.RESULT_CANCELED)
-        finish()
+        // Launch file picker for oauth_creds.json
+        filePicker.launch(arrayOf("application/json"))
     }
 
-    private fun tryReadQwenCodeToken(): Boolean {
-        val credsFile = File(QWEN_CREDS_PATH)
-        if (!credsFile.exists()) return false
+    /**
+     * Try reading from shared storage location (user copies token here)
+     */
+    private fun tryReadFromSharedStorage(): Boolean {
+        val sharedPath = getExternalFilesDir(null)?.resolve("qwen_oauth.json")
+            ?: return false
+        if (!sharedPath.exists()) return false
 
+        return try {
+            val json = sharedPath.readText()
+            parseAndSaveToken(json)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun readTokenFromUri(uri: Uri) {
         try {
-            val json = credsFile.readText()
-            val gson = Gson()
-            val creds = gson.fromJson(json, QwenCreds::class.java)
+            val inputStream = contentResolver.openInputStream(uri) ?: run {
+                showError("Cannot open file")
+                return
+            }
+            val json = BufferedReader(InputStreamReader(inputStream)).readText()
+            inputStream.close()
 
-            if (creds.access_token.isNullOrEmpty()) return false
-
-            val expiryMs = creds.expiry_date ?: 0L
-            if (System.currentTimeMillis() >= expiryMs) return false
-
-            // Save to our app storage
-            ArchClawApp.instance.saveQwenOAuthToken(creds.access_token, expiryMs)
-
-            Toast.makeText(this, "✓ Authenticated via Qwen Code!", Toast.LENGTH_LONG).show()
-            setResult(Activity.RESULT_OK)
-            finish()
-            return true
-
+            if (parseAndSaveToken(json)) {
+                Toast.makeText(this, "✓ Authenticated via Qwen Code!", Toast.LENGTH_LONG).show()
+                setResult(Activity.RESULT_OK)
+                finish()
+            } else {
+                showError("Invalid token file")
+            }
         } catch (e: Exception) {
+            showError("Read error: ${e.message}")
+        }
+    }
+
+    private fun parseAndSaveToken(json: String): Boolean {
+        val gson = Gson()
+        val creds = gson.fromJson(json, QwenCreds::class.java)
+
+        if (creds.access_token.isNullOrEmpty()) return false
+
+        val expiryMs = creds.expiry_date ?: 0L
+        if (System.currentTimeMillis() >= expiryMs) {
+            showError("Token expired. Re-authenticate in Termux: qwen /auth")
             return false
         }
+
+        ArchClawApp.instance.saveQwenOAuthToken(creds.access_token, expiryMs)
+        return true
+    }
+
+    private fun showError(msg: String) {
+        Toast.makeText(this, "✗ $msg", Toast.LENGTH_LONG).show()
+        setResult(Activity.RESULT_CANCELED)
+        finish()
     }
 
     data class QwenCreds(

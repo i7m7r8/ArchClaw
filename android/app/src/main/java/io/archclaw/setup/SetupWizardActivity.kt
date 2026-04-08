@@ -18,10 +18,11 @@ import io.archclaw.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 
 class SetupWizardActivity : AppCompatActivity() {
 
@@ -81,7 +82,6 @@ class SetupWizardActivity : AppCompatActivity() {
     private suspend fun runFullSetup() {
         val filesDir = ArchClawApp.instance.filesDir.absolutePath
         val arch = ArchUtils.getArch()
-        val rootfsUrl = AppConstants.ROOTFS_URL
         val tarPath = "$filesDir/tmp/archlinux-rootfs.tar.gz"
 
         // Step 1: Download rootfs (0-30%)
@@ -90,13 +90,29 @@ class SetupWizardActivity : AppCompatActivity() {
             statusText.text = "Downloading Arch Linux..."
         }
 
-        downloadFile(rootfsUrl, tarPath) { progress ->
-            val overallProgress = (progress * 30).toInt()
-            withContext(Dispatchers.Main) {
-                progressBar.progress = overallProgress
-                progressText.text = "${overallProgress}%"
+        val rootfsMirrors = listOf(
+            "https://mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
+            "https://eu.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
+            "https://de.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+        )
+        
+        var rootfsDownloaded = false
+        for (mirror in rootfsMirrors) {
+            try {
+                downloadFile(mirror, tarPath) { progress ->
+                    val overallProgress = (progress * 30).toInt()
+                    withContext(Dispatchers.Main) {
+                        progressBar.progress = overallProgress
+                        progressText.text = "${overallProgress}%"
+                    }
+                }
+                rootfsDownloaded = true
+                break
+            } catch (e: Exception) {
+                // Try next mirror
             }
         }
+        if (!rootfsDownloaded) throw Exception("All rootfs mirrors failed")
 
         // Step 2: Extract rootfs (30-50%)
         withContext(Dispatchers.Main) { statusText.text = "Extracting rootfs..." }
@@ -166,24 +182,31 @@ class SetupWizardActivity : AppCompatActivity() {
 
     private suspend fun downloadFile(url: String, destPath: String, onProgress: suspend (Double) -> Unit) {
         withContext(Dispatchers.IO) {
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.connectTimeout = 120000
-            connection.readTimeout = 120000
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "ArchClaw/1.0")
-            connection.instanceFollowRedirects = true
+            val client = OkHttpClient.Builder()
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
 
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                connection.disconnect()
-                throw RuntimeException("Download failed: HTTP ${connection.responseCode}")
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "ArchClaw/0.1.0 (Android; proot)")
+                .header("Accept", "*/*")
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                throw RuntimeException("HTTP ${response.code} from $url")
             }
 
-            val totalBytes = connection.contentLengthLong
+            val body = response.body ?: throw RuntimeException("Empty response body")
+            val totalBytes = body.contentLength()
             val destFile = File(destPath)
             destFile.parentFile?.mkdirs()
 
             var downloadedBytes = 0L
-            connection.inputStream.use { input ->
+            body.byteStream().use { input ->
                 FileOutputStream(destFile).use { output ->
                     val buffer = ByteArray(65536)
                     var bytesRead: Int
@@ -196,7 +219,6 @@ class SetupWizardActivity : AppCompatActivity() {
                     }
                 }
             }
-            connection.disconnect()
 
             if (!destFile.exists() || destFile.length() == 0L) {
                 throw RuntimeException("Downloaded file is empty")

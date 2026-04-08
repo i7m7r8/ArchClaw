@@ -51,6 +51,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // OkHttp for downloads (handles redirects and 403 better than HttpURLConnection)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Apache Commons Compress for rootfs/node extraction
     implementation("org.apache.commons:commons-compress:1.26.0")
 

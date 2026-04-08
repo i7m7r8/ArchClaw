@@ -1,222 +1,515 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io';
-package io.archclaw
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../app.dart';
+import '../constants.dart';
+import '../providers/node_provider.dart';
+import '../services/native_bridge.dart';
+import '../services/preferences_service.dart';
+import '../services/update_service.dart';
+import 'node_screen.dart';
+import 'setup_wizard_screen.dart';
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.LinkProperties
-import android.os.Build
-import android.system.Os
-import java.io.BufferedInputStream
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.zip.GZIPInputStream
-import org.apache.commons.compress.archivers.ar.ArArchiveInputStream
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
-import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
 
-class BootstrapManager(
-    private val context: Context,
-    private val filesDir: String,
-    private val nativeLibDir: String
-) {
-    private val rootfsDir get() = "$filesDir/rootfs/archlinux"
-    private val tmpDir get() = "$filesDir/tmp"
-    private val homeDir get() = "$filesDir/home"
-    private val configDir get() = "$filesDir/config"
-    private val libDir get() = "$filesDir/lib"
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
 
-    fun setupDirectories() {
-        listOf(rootfsDir, tmpDir, homeDir, configDir, "$homeDir/.openclaw", libDir).forEach {
-            File(it).mkdirs()
-        }
-        // Download proot + libs from Termux if not bundled in APK
-        ensureProotBinaries()
-        // Create fake /proc and /sys files for proot bind mounts
-        setupFakeSysdata()
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _prefs = PreferencesService();
+  bool _autoStart = false;
+  bool _nodeEnabled = false;
+  bool _batteryOptimized = true;
+  String _arch = '';
+  String _prootPath = '';
+  Map<String, dynamic> _status = {};
+  bool _loading = true;
+  bool _goInstalled = false;
+  bool _brewInstalled = false;
+  bool _sshInstalled = false;
+  bool _storageGranted = false;
+  bool _checkingUpdate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    await _prefs.init();
+    _autoStart = _prefs.autoStartGateway;
+    _nodeEnabled = _prefs.nodeEnabled;
+
+    try {
+      final arch = await NativeBridge.getArch();
+      final prootPath = await NativeBridge.getProotPath();
+      final status = await NativeBridge.getBootstrapStatus();
+      final batteryOptimized = await NativeBridge.isBatteryOptimized();
+
+      final storageGranted = await NativeBridge.hasStoragePermission();
+
+      // Check optional package statuses
+      final filesDir = await NativeBridge.getFilesDir();
+      final rootfs = '$filesDir/rootfs/ubuntu';
+      final goInstalled = File('$rootfs/usr/bin/go').existsSync();
+      final brewInstalled =
+          File('$rootfs/home/linuxbrew/.linuxbrew/bin/brew').existsSync();
+      final sshInstalled = File('$rootfs/usr/bin/ssh').existsSync();
+
+      setState(() {
+        _batteryOptimized = batteryOptimized;
+        _storageGranted = storageGranted;
+        _arch = arch;
+        _prootPath = prootPath;
+        _status = status;
+        _goInstalled = goInstalled;
+        _brewInstalled = brewInstalled;
+        _sshInstalled = sshInstalled;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+      });
     }
+  }
 
-    /** Download proot + libtalloc + loaders from Termux repo if not bundled.
-        Supports resume if interrupted. */
-    private fun ensureProotBinaries() {
-        val prootFile = File(libDir, "libproot.so")
-        val loaderFile = File(libDir, "libprootloader.so")
-        val loader32File = File(libDir, "libprootloader32.so")
-        val tallocFile = File(libDir, "libtalloc.so")
-        val talloc2File = File(libDir, "libtalloc.so.2")
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-        // If already in nativeLibDir (bundled in APK), copy to libDir
-        val nativeProot = File(nativeLibDir, "libproot.so")
-        if (nativeProot.exists() && !prootFile.exists()) {
-            nativeProot.copyTo(prootFile)
-            File(nativeLibDir, "libprootloader.so").takeIf { it.exists() }?.copyTo(loaderFile)
-            File(nativeLibDir, "libprootloader32.so").takeIf { it.exists() }?.copyTo(loader32File)
-            File(nativeLibDir, "libtalloc.so").takeIf { it.exists() }?.copyTo(tallocFile)
-        }
-        if (prootFile.exists()) {
-            // Ensure libtalloc.so.2 exists (proot needs this SONAME)
-            if (tallocFile.exists() && !talloc2File.exists()) {
-                tallocFile.copyTo(talloc2File)
-                talloc2File.setExecutable(true)
-            }
-            return
-        }
-
-        android.util.Log.i("ArchClaw", "Downloading proot from Termux repo...")
-        val repo = "https://packages-cf.termux.dev/apt/termux-main"
-
-        try {
-            // Get package filename from repo index
-            val pkgs = URL("$repo/dists/stable/main/binary-aarch64/Packages")
-                .openStream().bufferedReader().readText()
-            val filename = pkgs.lineSequence()
-                .dropWhile { it != "Package: proot" }
-                .drop(1)
-                .firstOrNull { it.startsWith("Filename:") }
-                ?.substringAfter("Filename: ")?.trim()
-                ?: throw RuntimeException("proot package not found in repo")
-
-            // Download .deb with resume support
-            val debFile = File(tmpDir, "proot.deb")
-            val debUrl = URL("$repo/$filename")
-            downloadWithResume(debUrl, debFile)
-
-            // Extract .deb → data.tar → copy needed files to libDir
-            FileInputStream(debFile).use { fis ->
-                ArArchiveInputStream(fis).use { ar ->
-                    var entry = ar.nextArEntry
-                    while (entry != null) {
-                        if (entry.name.startsWith("data.tar")) {
-                            val decompressor: InputStream = when {
-                                entry.name.endsWith(".xz") -> XZCompressorInputStream(ar)
-                                entry.name.endsWith(".gz") -> GZIPInputStream(ar)
-                                entry.name.endsWith(".zst") -> ZstdCompressorInputStream(ar)
-                                else -> ar
-                            }
-                            TarArchiveInputStream(decompressor).use { tar ->
-                                var te = tar.nextTarEntry
-                                while (te != null) {
-                                    val name = te.name.removePrefix("./")
-                                    when {
-                                        name.endsWith("/bin/proot") -> {
-                                            FileOutputStream(prootFile).use { tar.copyTo(it) }
-                                            prootFile.setExecutable(true, false)
-                                        }
-                                        name.contains("libtalloc.so") && !name.contains(".py") -> {
-                                            FileOutputStream(tallocFile).use { tar.copyTo(it) }
-                                            tallocFile.setExecutable(true, false)
-                                            // Also create libtalloc.so.2 (SONAME that proot needs)
-                                            tallocFile.copyTo(talloc2File)
-                                            talloc2File.setExecutable(true, false)
-                                        }
-                                        name.endsWith("/proot/loader") && !name.endsWith("loader32") -> {
-                                            FileOutputStream(loaderFile).use { tar.copyTo(it) }
-                                            loaderFile.setExecutable(true, false)
-                                        }
-                                        name.endsWith("/proot/loader32") -> {
-                                            FileOutputStream(loader32File).use { tar.copyTo(it) }
-                                            loader32File.setExecutable(true, false)
-                                        }
-                                    }
-                                    te = tar.nextTarEntry
-                                }
-                            }
-                            break
-                        }
-                        entry = ar.nextArEntry
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              children: [
+                _sectionHeader(theme, 'GENERAL'),
+                SwitchListTile(
+                  title: const Text('Auto-start gateway'),
+                  subtitle: const Text('Start the gateway when the app opens'),
+                  value: _autoStart,
+                  onChanged: (value) {
+                    setState(() => _autoStart = value);
+                    _prefs.autoStartGateway = value;
+                  },
+                ),
+                ListTile(
+                  title: const Text('Battery Optimization'),
+                  subtitle: Text(_batteryOptimized
+                      ? 'Optimized (may kill background sessions)'
+                      : 'Unrestricted (recommended)'),
+                  leading: const Icon(Icons.battery_alert),
+                  trailing: _batteryOptimized
+                      ? const Icon(Icons.warning, color: AppColors.statusAmber)
+                      : const Icon(Icons.check_circle, color: AppColors.statusGreen),
+                  onTap: () async {
+                    await NativeBridge.requestBatteryOptimization();
+                    // Refresh status after returning from settings
+                    final optimized = await NativeBridge.isBatteryOptimized();
+                    setState(() => _batteryOptimized = optimized);
+                  },
+                ),
+                ListTile(
+                  title: const Text('Setup Storage'),
+                  subtitle: Text(_storageGranted
+                      ? 'Granted — proot can access /sdcard. Revoke if not needed.'
+                      : 'Not granted (recommended) — tap to grant only if needed'),
+                  leading: const Icon(Icons.sd_storage),
+                  trailing: _storageGranted
+                      ? const Icon(Icons.warning_amber, color: AppColors.statusAmber)
+                      : const Icon(Icons.check_circle, color: AppColors.statusGreen),
+                  onTap: () async {
+                    await NativeBridge.requestStoragePermission();
+                    // Refresh after returning from permission screen
+                    final granted = await NativeBridge.hasStoragePermission();
+                    setState(() => _storageGranted = granted);
+                  },
+                ),
+                const Divider(),
+                _sectionHeader(theme, 'NODE'),
+                SwitchListTile(
+                  title: const Text('Enable Node'),
+                  subtitle: const Text('Provide device capabilities to the gateway'),
+                  value: _nodeEnabled,
+                  onChanged: (value) {
+                    setState(() => _nodeEnabled = value);
+                    _prefs.nodeEnabled = value;
+                    final nodeProvider = context.read<NodeProvider>();
+                    if (value) {
+                      nodeProvider.enable();
+                    } else {
+                      nodeProvider.disable();
                     }
-                }
-            }
-            debFile.delete()
+                  },
+                ),
+                ListTile(
+                  title: const Text('Node Configuration'),
+                  subtitle: const Text('Connection, pairing, and capabilities'),
+                  leading: const Icon(Icons.devices),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const NodeScreen()),
+                  ),
+                ),
+                const Divider(),
+                _sectionHeader(theme, 'SYSTEM INFO'),
+                ListTile(
+                  title: const Text('Architecture'),
+                  subtitle: Text(_arch),
+                  leading: const Icon(Icons.memory),
+                ),
+                ListTile(
+                  title: const Text('PRoot path'),
+                  subtitle: Text(_prootPath),
+                  leading: const Icon(Icons.folder),
+                ),
+                ListTile(
+                  title: const Text('Rootfs'),
+                  subtitle: Text(_status['rootfsExists'] == true
+                      ? 'Installed'
+                      : 'Not installed'),
+                  leading: const Icon(Icons.storage),
+                ),
+                ListTile(
+                  title: const Text('Node.js'),
+                  subtitle: Text(_status['nodeInstalled'] == true
+                      ? 'Installed'
+                      : 'Not installed'),
+                  leading: const Icon(Icons.code),
+                ),
+                ListTile(
+                  title: const Text('ArchClaw'),
+                  subtitle: Text(_status['archclawInstalled'] == true
+                      ? 'Installed'
+                      : 'Not installed'),
+                  leading: const Icon(Icons.cloud),
+                ),
+                ListTile(
+                  title: const Text('Go (Golang)'),
+                  subtitle: Text(_goInstalled
+                      ? 'Installed'
+                      : 'Not installed'),
+                  leading: const Icon(Icons.integration_instructions),
+                ),
+                ListTile(
+                  title: const Text('Homebrew'),
+                  subtitle: Text(_brewInstalled
+                      ? 'Installed'
+                      : 'Not installed'),
+                  leading: const Icon(Icons.science),
+                ),
+                ListTile(
+                  title: const Text('OpenSSH'),
+                  subtitle: Text(_sshInstalled
+                      ? 'Installed'
+                      : 'Not installed'),
+                  leading: const Icon(Icons.vpn_key),
+                ),
+                const Divider(),
+                _sectionHeader(theme, 'MAINTENANCE'),
+                ListTile(
+                  title: const Text('Export Snapshot'),
+                  subtitle: const Text('Backup config to Downloads'),
+                  leading: const Icon(Icons.upload_file),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _exportSnapshot,
+                ),
+                ListTile(
+                  title: const Text('Import Snapshot'),
+                  subtitle: const Text('Restore config from backup'),
+                  leading: const Icon(Icons.download),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _importSnapshot,
+                ),
+                ListTile(
+                  title: const Text('Re-run setup'),
+                  subtitle: const Text('Reinstall or repair the environment'),
+                  leading: const Icon(Icons.build),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const SetupWizardScreen(),
+                    ),
+                  ),
+                ),
+                const Divider(),
+                _sectionHeader(theme, 'ABOUT'),
+                const ListTile(
+                  title: Text('ArchClaw'),
+                  subtitle: Text(
+                    'AI Gateway for Android\nVersion ${AppConstants.version}',
+                  ),
+                  leading: Icon(Icons.info_outline),
+                  isThreeLine: true,
+                ),
+                ListTile(
+                  title: const Text('Check for Updates'),
+                  subtitle: const Text('Check GitHub for a newer release'),
+                  leading: _checkingUpdate
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.system_update),
+                  onTap: _checkingUpdate ? null : _checkForUpdates,
+                ),
+                const ListTile(
+                  title: Text('Developer'),
+                  subtitle: Text(AppConstants.authorName),
+                  leading: Icon(Icons.person),
+                ),
+                ListTile(
+                  title: const Text('GitHub'),
+                  subtitle: const Text('mithun50/archclaw-termux'),
+                  leading: const Icon(Icons.code),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse(AppConstants.githubUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Contact'),
+                  subtitle: const Text(AppConstants.authorEmail),
+                  leading: const Icon(Icons.email),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse('mailto:${AppConstants.authorEmail}'),
+                  ),
+                ),
+                const ListTile(
+                  title: Text('License'),
+                  subtitle: Text(AppConstants.license),
+                  leading: Icon(Icons.description),
+                ),
+                const Divider(),
+                _sectionHeader(theme, AppConstants.orgName.toUpperCase()),
+                ListTile(
+                  title: const Text('Instagram'),
+                  subtitle: const Text('@nexgenxplorer_nxg'),
+                  leading: const Icon(Icons.camera_alt),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse(AppConstants.instagramUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('YouTube'),
+                  subtitle: const Text('@nexgenxplorer'),
+                  leading: const Icon(Icons.play_circle_fill),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse(AppConstants.youtubeUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Play Store'),
+                  subtitle: const Text('NextGenX Apps'),
+                  leading: const Icon(Icons.shop),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse(AppConstants.playStoreUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Email'),
+                  subtitle: const Text(AppConstants.orgEmail),
+                  leading: const Icon(Icons.email_outlined),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse('mailto:${AppConstants.orgEmail}'),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
 
-            // Final verification
-            if (!prootFile.exists()) throw RuntimeException("proot extraction failed")
-            if (!talloc2File.exists() && tallocFile.exists()) {
-                tallocFile.copyTo(talloc2File)
-                talloc2File.setExecutable(true)
-            }
-
-            android.util.Log.i("ArchClaw", "Proot downloaded to $libDir")
-        } catch (e: Exception) {
-            android.util.Log.e("ArchClaw", "Failed to download proot: ${e.message}")
-            throw e
-        }
+  Future<String> _getSnapshotPath() async {
+    final hasPermission = await NativeBridge.hasStoragePermission();
+    if (hasPermission) {
+      final sdcard = await NativeBridge.getExternalStoragePath();
+      final downloadDir = Directory('$sdcard/Download');
+      if (!await downloadDir.exists()) {
+        await downloadDir.create(recursive: true);
+      }
+      return '$sdcard/Download/archclaw-snapshot.json';
     }
+    // Fallback to app-private directory
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/archclaw-snapshot.json';
+  }
 
-    /** Download with HTTP resume support. If partial file exists, 
-        sends Range header to continue from where it left off. */
-    private fun downloadWithResume(url: URL, destFile: File) {
-        val conn = url.openConnection() as HttpURLConnection
-        conn.connectTimeout = 30000
-        conn.readTimeout = 60000
-        conn.requestMethod = "GET"
-        conn.setRequestProperty("User-Agent", "ArchClaw/1.0")
+  Future<void> _exportSnapshot() async {
+    try {
+      final archclawJson = await NativeBridge.readRootfsFile('root/.archclaw/archclaw.json');
+      final snapshot = {
+        'version': AppConstants.version,
+        'timestamp': DateTime.now().toIso8601String(),
+        'archclawConfig': archclawJson,
+        'dashboardUrl': _prefs.dashboardUrl,
+        'autoStart': _prefs.autoStartGateway,
+        'nodeEnabled': _prefs.nodeEnabled,
+        'nodeDeviceToken': _prefs.nodeDeviceToken,
+        'nodeGatewayHost': _prefs.nodeGatewayHost,
+        'nodeGatewayPort': _prefs.nodeGatewayPort,
+        'nodeGatewayToken': _prefs.nodeGatewayToken,
+      };
 
-        var downloadedBytes = 0L
-        // Resume if partial file exists
-        if (destFile.exists()) {
-            downloadedBytes = destFile.length()
-            conn.setRequestProperty("Range", "bytes=$downloadedBytes-")
-        }
+      final path = await _getSnapshotPath();
+      final file = File(path);
+      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(snapshot));
 
-        val responseCode = conn.responseCode
-        if (responseCode != HttpURLConnection.HTTP_OK && 
-            responseCode != HttpURLConnection.HTTP_PARTIAL) {
-            conn.disconnect()
-            throw RuntimeException("Download failed: HTTP $responseCode")
-        }
-
-        val totalBytes = conn.contentLengthLong
-        val isResume = responseCode == HttpURLConnection.HTTP_PARTIAL
-
-        conn.inputStream.use { input ->
-            FileOutputStream(destFile, append = isResume).use { output ->
-                val buffer = ByteArray(65536)
-                var bytesRead: Int
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
-                    downloadedBytes += bytesRead
-                }
-            }
-        }
-        conn.disconnect()
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Snapshot saved to $path')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
     }
+  }
 
-    /** Setup libtalloc.so.2 symlink/copy.
-        Proot links against libtalloc.so.2 but Android packages ship libtalloc.so */
-    private fun setupLibtalloc() {
-        val talloc2File = File(libDir, "libtalloc.so.2")
-        // Check nativeLibDir first (bundled in APK)
-        val nativeSource = File(nativeLibDir, "libtalloc.so")
-        if (nativeSource.exists() && !talloc2File.exists()) {
-            nativeSource.copyTo(talloc2File)
-            talloc2File.setExecutable(true)
-        }
-        // Also check libDir for downloaded libtalloc
-        val downloadedSource = File(libDir, "libtalloc.so")
-        if (downloadedSource.exists() && !talloc2File.exists()) {
-            downloadedSource.copyTo(talloc2File)
-            talloc2File.setExecutable(true)
-        }
+  Future<void> _importSnapshot() async {
+    try {
+      final path = await _getSnapshotPath();
+      final file = File(path);
+
+      if (!await file.exists()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No snapshot found at $path')),
+        );
+        return;
+      }
+
+      final content = await file.readAsString();
+      final snapshot = jsonDecode(content) as Map<String, dynamic>;
+
+      // Restore archclaw.json into rootfs
+      final archclawConfig = snapshot['archclawConfig'] as String?;
+      if (archclawConfig != null) {
+        await NativeBridge.writeRootfsFile('root/.archclaw/archclaw.json', archclawConfig);
+      }
+
+      // Restore preferences
+      if (snapshot['dashboardUrl'] != null) {
+        _prefs.dashboardUrl = snapshot['dashboardUrl'] as String;
+      }
+      if (snapshot['autoStart'] != null) {
+        _prefs.autoStartGateway = snapshot['autoStart'] as bool;
+      }
+      if (snapshot['nodeEnabled'] != null) {
+        _prefs.nodeEnabled = snapshot['nodeEnabled'] as bool;
+      }
+      if (snapshot['nodeDeviceToken'] != null) {
+        _prefs.nodeDeviceToken = snapshot['nodeDeviceToken'] as String;
+      }
+      if (snapshot['nodeGatewayHost'] != null) {
+        _prefs.nodeGatewayHost = snapshot['nodeGatewayHost'] as String;
+      }
+      if (snapshot['nodeGatewayPort'] != null) {
+        _prefs.nodeGatewayPort = snapshot['nodeGatewayPort'] as int;
+      }
+      if (snapshot['nodeGatewayToken'] != null) {
+        _prefs.nodeGatewayToken = snapshot['nodeGatewayToken'] as String;
+      }
+
+      // Refresh UI
+      await _loadSettings();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Snapshot restored successfully. Restart the gateway to apply.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: $e')),
+      );
     }
+  }
 
-    fun isBootstrapComplete(): Boolean {
-        val rootfs = File(rootfsDir)
-        val binBash = File("$rootfsDir/usr/bin/bash")
-        val bypass = File("$rootfsDir/root/.openclaw/bionic-bypass.js")
-        val node = File("$rootfsDir/usr/local/bin/node")
-        val openclaw = File("$rootfsDir/usr/local/lib/
+  Future<void> _checkForUpdates() async {
+    setState(() => _checkingUpdate = true);
+    try {
+      final result = await UpdateService.check();
+      if (!mounted) return;
+      if (result.available) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Update Available'),
+            content: Text(
+              'A new version is available.\n\n'
+              'Current: ${AppConstants.version}\n'
+              'Latest: ${result.latest}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Later'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  launchUrl(
+                    Uri.parse(result.url),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+                child: const Text('Download'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("You're on the latest version")),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not check for updates')),
+      );
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
+  }
+
+  Widget _sectionHeader(ThemeData theme, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(
+        title,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
 
   Widget _buildQwenOAuthSection() {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
         leading: const Icon(Icons.login, color: Color(0xFF6366F1)),
         title: const Text('Qwen OAuth'),
@@ -231,3 +524,117 @@ class BootstrapManager(
       ),
     );
   }
+
+
+class QwenOAuthScreen extends StatefulWidget {
+  const QwenOAuthScreen({super.key});
+
+  @override
+  State<QwenOAuthScreen> createState() => _QwenOAuthScreenState();
+}
+
+class _QwenOAuthScreenState extends State<QwenOAuthScreen> {
+  String _status = 'Not configured';
+  bool _loading = false;
+
+  Future<void> _importToken() async {
+    setState(() => _loading = true);
+    try {
+      final termuxToken = File('/data/data/com.termux/files/home/.qwen/oauth_creds.json');
+      if (termuxToken.existsSync()) {
+        final content = termuxToken.readAsStringSync();
+        final json = jsonDecode(content);
+        final token = json['access_token'] as String?;
+        final expiry = json['expiry_date'] as int?;
+        if (token != null && expiry != null && expiry > DateTime.now().millisecondsSinceEpoch) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('qwen_token', token);
+          await prefs.setInt('qwen_expires', expiry);
+          setState(() => _status = 'Active (imported from Termux)');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Qwen OAuth token imported!')),
+            );
+          }
+          return;
+        }
+      }
+      setState(() => _status = 'No valid token found. Run qwen in Termux first.');
+    } catch (e) {
+      setState(() => _status = 'Error: \$e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('qwen_token');
+    final expires = prefs.getInt('qwen_expires') ?? 0;
+    if (token != null && expires > DateTime.now().millisecondsSinceEpoch) {
+      final remaining = Duration(milliseconds: expires - DateTime.now().millisecondsSinceEpoch);
+      setState(() => _status = 'Active (expires in \${remaining.inHours}h)');
+    } else {
+      setState(() => _status = 'Not configured');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Qwen OAuth')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Status', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(_status),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('To use Qwen OAuth:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('1. Open Termux and run: qwen'),
+            const Text('2. Complete the OAuth login flow'),
+            const Text('3. Return here and tap Import Token'),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _loading ? null : _importToken,
+                icon: _loading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.sync),
+                label: Text(_loading ? 'Importing...' : 'Import Token from Termux'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.blue.withOpacity(0.1),
+              child: const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('The token gives you 2,000 free requests/day via Qwen Code. No API key or credit card needed.'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

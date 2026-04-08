@@ -7,6 +7,7 @@ import android.os.Build
 import android.system.Os
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 import java.io.BufferedInputStream
 import java.io.File
@@ -88,8 +89,26 @@ class BootstrapManager(
         try {
             FileInputStream(tarPath).use { fis ->
                 BufferedInputStream(fis, 256 * 1024).use { bis ->
-                    XZCompressorInputStream(bis).use { xzis ->
-                        TarArchiveInputStream(xzis).use { tis ->
+                    // Detect compression format by magic bytes
+                    bis.mark(6)
+                    val magic = ByteArray(6)
+                    bis.read(magic)
+                    bis.reset()
+
+                    val tarStream: TarArchiveInputStream = when {
+                        // XZ magic bytes: FD 37 7A 58 5A 00
+                        magic[0] == 0xFD.toByte() && magic[1] == 0x37.toByte() &&
+                        magic[2] == 0x7A.toByte() && magic[3] == 0x58.toByte() &&
+                        magic[4] == 0x5A.toByte() && magic[5] == 0x00.toByte() ->
+                            TarArchiveInputStream(XZCompressorInputStream(bis))
+                        // GZIP magic bytes: 1F 8B
+                        magic[0] == 0x1F.toByte() && magic[1] == 0x8B.toByte() ->
+                            TarArchiveInputStream(GzipCompressorInputStream(bis))
+                        else ->
+                            TarArchiveInputStream(bis) // Plain tar
+                    }
+
+                    tarStream.use { tis ->
                             var entry: TarArchiveEntry? = tis.nextEntry
                             while (entry != null) {
                                 entryCount++

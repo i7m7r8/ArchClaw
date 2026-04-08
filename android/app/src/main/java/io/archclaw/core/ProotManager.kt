@@ -30,12 +30,12 @@ data class StorageInfo(val sizeBytes: Long, val isReady: Boolean)
 /**
  * Production-grade ProotManager - fully self-contained, no proot-distro needed.
  * 
- * Bundles/downloads everything:
+ * Downloads and manages everything directly:
  * 1. proot static binary (from GitHub releases)
  * 2. Arch Linux ARM64 rootfs (from official mirrors)
  * 3. Bootstraps pacman, installs Node.js, Python, AI tools
  * 
- * Works as a standalone APK - no Termux required.
+ * Works as a standalone APK - no Termux or proot-distro required.
  */
 class ProotManager(private val context: Context) {
 

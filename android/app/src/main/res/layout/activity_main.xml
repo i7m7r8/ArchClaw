@@ -206,7 +206,7 @@
                 android:layout_width="0dp"
                 android:layout_height="100dp"
                 android:layout_columnWeight="1"
-                android:text="ZeroClaw\n<5MB RAM"
+                android:text="ZeroClaw\n&lt;5MB RAM"
                 android:textSize="14sp"
                 android:backgroundTint="@color/success_green" />
 

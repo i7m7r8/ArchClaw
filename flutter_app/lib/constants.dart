@@ -1,7 +1,7 @@
 class AppConstants {
   static const String appName = 'ArchClaw';
   static const String version = '1.8.7';
-  static const String packageName = 'com.nxg.openclawproot';
+  static const String packageName = 'io.archclaw';
 
   /// Matches ANSI escape sequences (e.g. color codes in terminal output).
   static final ansiEscape = RegExp(r'\x1b\[[0-9;]*[a-zA-Z]');
@@ -60,8 +60,8 @@ class AppConstants {
   static const String nodeRole = 'node';
   static const int pairingTimeoutMs = 300000;
 
-  static const String channelName = 'com.nxg.openclawproot/native';
-  static const String eventChannelName = 'com.nxg.openclawproot/gateway_logs';
+  static const String channelName = 'io.archclaw/native';
+  static const String eventChannelName = 'io.archclaw/gateway_logs';
 
   static String getRootfsUrl(String arch) {
     switch (arch) {

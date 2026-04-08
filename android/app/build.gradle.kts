@@ -74,7 +74,4 @@ dependencies {
 
     // JSON
     implementation("com.google.code.gson:gson:2.10.1")
-
-    // Encryption (for OAuth tokens)
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }

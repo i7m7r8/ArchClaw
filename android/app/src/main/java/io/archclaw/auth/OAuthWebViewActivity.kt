@@ -1,112 +1,73 @@
 package io.archclaw.auth
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
-import android.view.ViewGroup
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.gson.Gson
 import io.archclaw.ArchClawApp
-import io.archclaw.R
+import java.io.File
 
+/**
+ * OAuth Activity - Reads real Qwen Code OAuth token from Termux
+ * 
+ * Qwen Code saves OAuth creds at:
+ * ~/.qwen/oauth_creds.json
+ * 
+ * We read it directly and use it for all AI tools.
+ */
 class OAuthWebViewActivity : AppCompatActivity() {
 
     companion object {
-        const val OAUTH_URL = "https://qwen.ai/oauth/authorize" +
-                "?response_type=token" +
-                "&client_id=qwen-code-cli" +
-                "&redirect_uri=io.archclaw://oauth/callback" +
-                "&scope=openid+profile+qwen-code-api"
-        const val CALLBACK_PREFIX = "io.archclaw://oauth/callback"
+        private const val QWEN_CREDS_PATH = "/data/data/com.termux/files/home/.qwen/oauth_creds.json"
     }
 
-    private lateinit var webView: WebView
-
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        webView = WebView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-
-            webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    val url = request?.url.toString()
-                    if (url.startsWith(CALLBACK_PREFIX)) {
-                        handleOAuthCallback(url)
-                        return true
-                    }
-                    return false
-                }
-
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    if (url?.contains("access_token=") == true) {
-                        extractTokenFromUrl(url)
-                    }
-                }
-            }
+        // Try to read existing Qwen Code token first
+        if (tryReadQwenCodeToken()) {
+            return
         }
 
-        setContentView(webView)
-        webView.loadUrl(OAUTH_URL)
+        // No token found - show error
+        Toast.makeText(this, "No Qwen token found. Run 'qwen' in Termux first.", Toast.LENGTH_LONG).show()
+        setResult(Activity.RESULT_CANCELED)
+        finish()
     }
 
-    private fun handleOAuthCallback(url: String) {
-        val fragment = url.split("#").getOrNull(1)
-        if (fragment != null) extractTokenFromFragment(fragment)
-        else {
-            Toast.makeText(this, "OAuth failed: no token", Toast.LENGTH_LONG).show()
-            setResult(Activity.RESULT_CANCELED)
-            finish()
-        }
-    }
+    private fun tryReadQwenCodeToken(): Boolean {
+        val credsFile = File(QWEN_CREDS_PATH)
+        if (!credsFile.exists()) return false
 
-    private fun extractTokenFromUrl(url: String) {
-        val parts = url.split("#")
-        if (parts.size > 1) extractTokenFromFragment(parts[1])
-    }
+        try {
+            val json = credsFile.readText()
+            val gson = Gson()
+            val creds = gson.fromJson(json, QwenCreds::class.java)
 
-    private fun extractTokenFromFragment(fragment: String) {
-        val params = fragment.split("&").associate {
-            val parts = it.split("=")
-            if (parts.size == 2) parts[0] to parts[1] else "" to ""
-        }
+            if (creds.access_token.isNullOrEmpty()) return false
 
-        val accessToken = params["access_token"]
-        val expiresIn = params["expires_in"]?.toLongOrNull() ?: 3600
+            val expiryMs = creds.expiry_date ?: 0L
+            if (System.currentTimeMillis() >= expiryMs) return false
 
-        if (accessToken != null) {
-            val expiresAt = System.currentTimeMillis() + (expiresIn * 1000)
-            (application as ArchClawApp).saveQwenOAuthToken(accessToken, expiresAt)
-            Toast.makeText(this, "✓ Qwen OAuth authenticated!", Toast.LENGTH_LONG).show()
+            // Save to our app storage
+            ArchClawApp.instance.saveQwenOAuthToken(creds.access_token, expiryMs)
+
+            Toast.makeText(this, "✓ Authenticated via Qwen Code!", Toast.LENGTH_LONG).show()
             setResult(Activity.RESULT_OK)
             finish()
-        } else {
-            Toast.makeText(this, "OAuth failed: no access token", Toast.LENGTH_LONG).show()
-            setResult(Activity.RESULT_CANCELED)
-            finish()
+            return true
+
+        } catch (e: Exception) {
+            return false
         }
     }
 
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack()
-        else {
-            setResult(Activity.RESULT_CANCELED)
-            finish()
-        }
-    }
-
-    override fun onDestroy() {
-        webView.destroy()
-        super.onDestroy()
-    }
+    data class QwenCreds(
+        val access_token: String?,
+        val token_type: String?,
+        val refresh_token: String?,
+        val resource_url: String?,
+        val expiry_date: Long?
+    )
 }

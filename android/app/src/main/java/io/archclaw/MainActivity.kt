@@ -20,6 +20,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var authStatusText: TextView
     private lateinit var authButton: Button
     private lateinit var qwenCodeButton: Button
+    private lateinit var zeroClawButton: Button
+    private lateinit var openClawButton: Button
+    private lateinit var aiderButton: Button
+    private lateinit var claudeButton: Button
+    private lateinit var geminiButton: Button
     private lateinit var terminalButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +38,11 @@ class MainActivity : AppCompatActivity() {
         authStatusText = findViewById(R.id.authStatusText)
         authButton = findViewById(R.id.oauthButton)
         qwenCodeButton = findViewById(R.id.qwenCodeButton)
+        zeroClawButton = findViewById(R.id.zeroClawButton)
+        openClawButton = findViewById(R.id.openClawButton)
+        aiderButton = findViewById(R.id.aiderButton)
+        claudeButton = findViewById(R.id.claudeButton)
+        geminiButton = findViewById(R.id.geminiButton)
         terminalButton = findViewById(R.id.terminalButton)
 
         setupCard.setOnClickListener { startActivity(Intent(this, SetupWizardActivity::class.java)) }
@@ -40,19 +50,12 @@ class MainActivity : AppCompatActivity() {
         authButton.setOnClickListener { startOAuth() }
         terminalButton.setOnClickListener { startActivity(Intent(this, TerminalActivity::class.java)) }
 
-        qwenCodeButton.setOnClickListener {
-            val app = ArchClawApp.instance
-            if (!app.isSetupComplete()) {
-                Toast.makeText(this, "Complete setup first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (app.getQwenOAuthToken() == null) {
-                Toast.makeText(this, "Login with Qwen first", Toast.LENGTH_SHORT).show()
-                startOAuth()
-                return@setOnClickListener
-            }
-            Toast.makeText(this, "Starting Qwen Code...", Toast.LENGTH_SHORT).show()
-        }
+        qwenCodeButton.setOnClickListener { launchTool("qwen") }
+        zeroClawButton.setOnClickListener { launchTool("zeroclaw") }
+        openClawButton.setOnClickListener { launchTool("openclaw") }
+        aiderButton.setOnClickListener { launchTool("aider") }
+        claudeButton.setOnClickListener { launchTool("claude") }
+        geminiButton.setOnClickListener { launchTool("gemini") }
 
         updateAuthStatus()
     }
@@ -71,6 +74,36 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             Toast.makeText(this, "✓ Authenticated!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun launchTool(toolId: String) {
+        val app = ArchClawApp.instance
+        if (!app.isSetupComplete()) {
+            Toast.makeText(this, "Complete setup first", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, SetupWizardActivity::class.java))
+            return
+        }
+
+        val qwenTools = listOf("qwen", "zeroclaw", "openclaw", "aider")
+        if (toolId in qwenTools) {
+            val token = app.getQwenOAuthToken()
+            if (token == null || app.isQwenOAuthExpired()) {
+                Toast.makeText(this, "Login with Qwen first", Toast.LENGTH_SHORT).show()
+                startOAuth()
+                return
+            }
+        }
+
+        try {
+            val env = mutableMapOf<String, String>()
+            if (toolId in qwenTools) {
+                app.getQwenOAuthToken()?.let { env["QWEN_ACCESS_TOKEN"] = it }
+            }
+            app.prootManager.launchTool(toolId, env)
+            Toast.makeText(this, "Started $toolId", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 

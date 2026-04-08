@@ -21,7 +21,7 @@ class ArchClawApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        prootManager = ProotManager(filesDir)
+        prootManager = ProotManager(this)
     }
 
     fun isSetupComplete(): Boolean =

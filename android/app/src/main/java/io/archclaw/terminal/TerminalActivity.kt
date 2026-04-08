@@ -32,7 +32,7 @@ class TerminalActivity : AppCompatActivity() {
         clearButton = findViewById(R.id.clearButton)
         scrollView = findViewById(R.id.scrollView)
 
-        appendOutput("\n🐉 ArchClaw Terminal\nArch Linux environment ready.\nType 'exit' to close terminal.\n\n")
+        appendOutput("\n🐉 ArchClaw Terminal\nReady.\n\n")
 
         sendButton.setOnClickListener { executeCommand() }
         clearButton.setOnClickListener { outputView.text = "" }
@@ -42,21 +42,16 @@ class TerminalActivity : AppCompatActivity() {
     private fun executeCommand() {
         val command = inputView.text.toString().trim()
         if (command.isEmpty()) return
-
         inputView.setText("")
         appendOutput("$ $command\n")
-
-        if (command == "exit") {
-            finish()
-            return
-        }
+        if (command == "exit") { finish(); return }
 
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                (application as ArchClawApp).prootManager.executeInRootfs(command)
+                ArchClawApp.instance.prootManager.executeInRootfs(command)
             }
             if (result.output.isNotEmpty()) appendOutput(result.output)
-            if (result.exitCode != 0) appendOutput("\n[Exit code: ${result.exitCode}]\n")
+            if (result.exitCode != 0) appendOutput("\n[Exit: ${result.exitCode}]\n")
         }
     }
 

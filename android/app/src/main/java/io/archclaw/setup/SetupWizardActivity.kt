@@ -5,13 +5,11 @@ import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import io.archclaw.ArchClawApp
 import io.archclaw.MainActivity
 import io.archclaw.R
-import io.archclaw.core.ProotManager
 import io.archclaw.core.SetupStep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
@@ -29,7 +27,7 @@ class SetupWizardActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup_wizard)
 
-        if ((application as ArchClawApp).isSetupComplete()) {
+        if (ArchClawApp.instance.isSetupComplete()) {
             startActivity(MainActivity.newIntent(this))
             finish()
             return
@@ -48,19 +46,18 @@ class SetupWizardActivity : AppCompatActivity() {
 
     private fun startSetup() {
         statusText.text = "Starting setup..."
-        val app = application as ArchClawApp
+        val app = ArchClawApp.instance
 
         lifecycleScope.launch {
             try {
-                val prootManager = ProotManager(app.filesDir)
-                prootManager.setupProgress().collect { step ->
+                app.prootManager.setupProgress().collect { step ->
                     withContext(Dispatchers.Main) {
                         when (step) {
                             is SetupStep.DownloadingRootfs -> {
                                 progressBar.isIndeterminate = false
                                 progressBar.progress = step.progress
                                 progressText.text = "${step.progress}%"
-                                statusText.text = "Downloading Arch Linux rootfs..."
+                                statusText.text = "Downloading Arch Linux..."
                             }
                             is SetupStep.ExtractingRootfs -> {
                                 progressBar.isIndeterminate = true
@@ -72,7 +69,7 @@ class SetupWizardActivity : AppCompatActivity() {
                             }
                             is SetupStep.Bootstrapping -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Bootstrapping Arch Linux..."
+                                statusText.text = "Bootstrapping..."
                             }
                             is SetupStep.InstallingNodeJS -> {
                                 progressBar.isIndeterminate = true
@@ -91,7 +88,9 @@ class SetupWizardActivity : AppCompatActivity() {
                                 progressBar.progress = 100
                                 progressText.text = "100%"
                                 statusText.text = "Setup complete!"
-                                onSetupComplete()
+                                app.setSetupComplete()
+                                startActivity(MainActivity.newIntent(this@SetupWizardActivity))
+                                finish()
                             }
                         }
                     }
@@ -101,18 +100,9 @@ class SetupWizardActivity : AppCompatActivity() {
                     statusText.text = "Error: ${e.message}"
                     startButton.visibility = View.VISIBLE
                     startButton.text = "Retry"
-                    Toast.makeText(this@SetupWizardActivity,
-                        "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
-    }
-
-    private fun onSetupComplete() {
-        (application as ArchClawApp).setSetupComplete()
-        Toast.makeText(this, "Setup complete!", Toast.LENGTH_LONG).show()
-        startActivity(MainActivity.newIntent(this))
-        finish()
     }
 
     companion object {

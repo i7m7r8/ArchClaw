@@ -49,11 +49,6 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.8.2")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-
-    // HTTP client for downloads
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
-    // JSON
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Apache Commons Compress for rootfs/node extraction

@@ -8,8 +8,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.squareup.okhttp3.OkHttpClient
-import com.squareup.okhttp3.Request
 import io.archclaw.ArchClawApp
 import io.archclaw.ArchUtils
 import io.archclaw.AppConstants
@@ -22,6 +20,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class SetupWizardActivity : AppCompatActivity() {
 
@@ -99,18 +99,12 @@ class SetupWizardActivity : AppCompatActivity() {
         }
 
         // Step 2: Extract rootfs (30-50%)
-        withContext(Dispatchers.Main) {
-            statusText.text = "Extracting rootfs..."
-        }
+        withContext(Dispatchers.Main) { statusText.text = "Extracting rootfs..." }
 
-        withContext(Dispatchers.IO) {
-            bootstrapManager.extractRootfs(tarPath)
-        }
+        withContext(Dispatchers.IO) { bootstrapManager.extractRootfs(tarPath) }
 
         // Step 3: Install Node.js (50-75%)
-        withContext(Dispatchers.Main) {
-            statusText.text = "Downloading Node.js..."
-        }
+        withContext(Dispatchers.Main) { statusText.text = "Downloading Node.js..." }
 
         val nodeTarUrl = AppConstants.getNodeTarballUrl(arch)
         val nodeTarPath = "$filesDir/tmp/nodejs.tar.xz"
@@ -123,31 +117,25 @@ class SetupWizardActivity : AppCompatActivity() {
             }
         }
 
-        withContext(Dispatchers.Main) {
-            statusText.text = "Installing Node.js..."
-        }
+        withContext(Dispatchers.Main) { statusText.text = "Installing Node.js..." }
 
         withContext(Dispatchers.IO) {
             bootstrapManager.extractNodeTarball(nodeTarPath)
             bootstrapManager.installBionicBypass()
 
-            // Install pacman base packages
             processManager.runInProotSync("pacman -Syu --noconfirm --needed base-devel git curl wget vim nano sudo openssh htop")
             processManager.runInProotSync("ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && echo 'Etc/UTC' > /etc/timezone")
             processManager.runInProotSync("useradd -m -s /bin/bash archclaw || true")
             processManager.runInProotSync("echo 'archclaw ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers || true")
 
-            // Verify Node.js
             val nodeVersion = processManager.runInProotSync("node --version")
             if (!nodeVersion.trim().startsWith("v")) {
-                throw RuntimeException("Node.js verification failed")
+                throw RuntimeException("Node.js verification failed: $nodeVersion")
             }
         }
 
         // Step 4: Install AI tools (75-95%)
-        withContext(Dispatchers.Main) {
-            statusText.text = "Installing OpenClaw + Qwen Code..."
-        }
+        withContext(Dispatchers.Main) { statusText.text = "Installing OpenClaw + Qwen Code..." }
 
         withContext(Dispatchers.IO) {
             processManager.runInProotSync("npm install -g openclaw", timeoutSeconds = 1800)
@@ -155,14 +143,12 @@ class SetupWizardActivity : AppCompatActivity() {
             processManager.runInProotSync("pacman -S --noconfirm --needed python python-pip")
             processManager.runInProotSync("pip install --break-system-packages aider-chat 2>/dev/null || true")
 
-            // Create bin wrappers
             bootstrapManager.createBinWrappers("openclaw")
 
-            // Verify
             processManager.runInProotSync("openclaw --version || echo openclaw_installed")
         }
 
-        // Step 5: Complete (95-100%)
+        // Step 5: Complete
         withContext(Dispatchers.Main) {
             progressBar.progress = 100
             progressText.text = "100%"
@@ -180,27 +166,24 @@ class SetupWizardActivity : AppCompatActivity() {
 
     private suspend fun downloadFile(url: String, destPath: String, onProgress: suspend (Double) -> Unit) {
         withContext(Dispatchers.IO) {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-                .followRedirects(true)
-                .followSslRedirects(true)
-                .build()
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.connectTimeout = 120000
+            connection.readTimeout = 120000
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("User-Agent", "ArchClaw/1.0")
+            connection.instanceFollowRedirects = true
 
-            val request = Request.Builder().url(url).build()
-            val response = client.newCall(request).execute()
-
-            if (!response.isSuccessful) {
-                throw RuntimeException("Download failed: HTTP ${response.code}")
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                connection.disconnect()
+                throw RuntimeException("Download failed: HTTP ${connection.responseCode}")
             }
 
-            val body = response.body ?: throw RuntimeException("Empty response body")
-            val totalBytes = body.contentLength()
+            val totalBytes = connection.contentLengthLong
             val destFile = File(destPath)
             destFile.parentFile?.mkdirs()
 
             var downloadedBytes = 0L
-            body.byteStream().use { input ->
+            connection.inputStream.use { input ->
                 FileOutputStream(destFile).use { output ->
                     val buffer = ByteArray(65536)
                     var bytesRead: Int
@@ -213,6 +196,7 @@ class SetupWizardActivity : AppCompatActivity() {
                     }
                 }
             }
+            connection.disconnect()
 
             if (!destFile.exists() || destFile.length() == 0L) {
                 throw RuntimeException("Downloaded file is empty")

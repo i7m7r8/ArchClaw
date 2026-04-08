@@ -26,7 +26,7 @@ pub const APP_NAME: &str = "ArchClaw";
 pub const DEFAULT_GATEWAY_PORT: u16 = 18789;
 
 /// Supported architectures
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Architecture {
     ARM64,
     X86_64,

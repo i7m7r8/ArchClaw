@@ -2,9 +2,7 @@
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use tokio::process::Command;
-use tracing::info;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProotStatus {

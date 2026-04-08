@@ -20,13 +20,26 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Setup Android SDK & NDK
-        uses: android-actions/setup-android@v3
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27
+          add-to-path: true
 
-      - name: Install NDK
+      - name: Configure Rust NDK linker
         run: |
-          sdkmanager "ndk;27.0.12077973"
-          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> $GITHUB_ENV
+          NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
+          echo "NDK_HOME=$NDK_HOME" >> $GITHUB_ENV
+          cd rust
+          mkdir -p .cargo
+          cat > .cargo/config.toml <<CARGO
+          [target.aarch64-linux-android]
+          linker = "${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          ar = "${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          CARGO
+          echo "Cargo config:"
+          cat .cargo/config.toml
 
       - name: Cache Rust deps
         uses: Swatinem/rust-cache@v2
@@ -35,16 +48,7 @@ jobs:
 
       - name: Build Rust for Android ARM64
         run: |
-          cd rust
-          # Configure NDK linker via cargo config
-          mkdir -p .cargo
-          cat > .cargo/config.toml <<CARGO
-          [target.aarch64-linux-android]
-          linker = "${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-          ar = "${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-          CARGO
-          cat .cargo/config.toml
-          cd core
+          cd rust/core
           cargo build --release --target aarch64-linux-android
           echo "=== Built .so files ==="
           find target/aarch64-linux-android/release -name "*.so" -exec ls -lh {} \;

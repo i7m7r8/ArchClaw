@@ -1,6 +1,6 @@
 //! Qwen OAuth Authentication
 
-use anyhow::{Result, Context};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::info;

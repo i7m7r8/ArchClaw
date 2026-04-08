@@ -27,9 +27,24 @@ class MainActivity : AppCompatActivity() {
     private lateinit var geminiButton: Button
     private lateinit var terminalButton: Button
 
+    private lateinit var bootstrapManager: BootstrapManager
+    private lateinit var processManager: ProcessManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val filesDir = applicationContext.filesDir.absolutePath
+        val nativeLibDir = applicationContext.applicationInfo.nativeLibraryDir
+
+        bootstrapManager = BootstrapManager(applicationContext, filesDir, nativeLibDir)
+        processManager = ProcessManager(filesDir, nativeLibDir)
+
+        // Ensure directories and resolv.conf exist on every app start
+        Thread {
+            try { bootstrapManager.setupDirectories() } catch (_: Exception) {}
+            try { bootstrapManager.writeResolvConf() } catch (_: Exception) {}
+        }.start()
 
         try { startForegroundService(Intent(this, ArchClawService::class.java)) } catch (_: Exception) {}
 
@@ -78,8 +93,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchTool(toolId: String) {
-        val app = ArchClawApp.instance
-        if (!app.isSetupComplete()) {
+        if (!ArchClawApp.instance.isSetupComplete()) {
             Toast.makeText(this, "Complete setup first", Toast.LENGTH_SHORT).show()
             startActivity(Intent(this, SetupWizardActivity::class.java))
             return
@@ -87,8 +101,8 @@ class MainActivity : AppCompatActivity() {
 
         val qwenTools = listOf("qwen", "zeroclaw", "openclaw", "aider")
         if (toolId in qwenTools) {
-            val token = app.getQwenOAuthToken()
-            if (token == null || app.isQwenOAuthExpired()) {
+            val token = ArchClawApp.instance.getQwenOAuthToken()
+            if (token == null || ArchClawApp.instance.isQwenOAuthExpired()) {
                 Toast.makeText(this, "Import token first: run setup-qwen-token.sh in Termux", Toast.LENGTH_LONG).show()
                 startOAuth()
                 return
@@ -98,13 +112,25 @@ class MainActivity : AppCompatActivity() {
         try {
             val env = mutableMapOf<String, String>()
             if (toolId in qwenTools) {
-                app.getQwenOAuthToken()?.let { env["QWEN_ACCESS_TOKEN"] = it }
+                ArchClawApp.instance.getQwenOAuthToken()?.let { env["QWEN_ACCESS_TOKEN"] = it }
             }
-            app.prootManager.launchTool(toolId, env)
+            processManager.startProotProcess(buildToolCommand(toolId, env))
             Toast.makeText(this, "Started $toolId", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun buildToolCommand(toolId: String, env: Map<String, String>): String {
+        val command = when (toolId) {
+            "qwen" -> "qwen"
+            "zeroclaw" -> "zeroclaw start"
+            "openclaw" -> "openclaw start"
+            "aider" -> "aider"
+            else -> toolId
+        }
+        val envStr = env.map { (k, v) -> "$k=$v" }.joinToString(" ")
+        return "env $envStr bash -c \"$command\""
     }
 
     private fun updateAuthStatus() {

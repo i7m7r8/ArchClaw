@@ -1,7 +1,6 @@
 package io.archclaw
 
 import android.app.Application
-import io.archclaw.core.ProotManager
 
 class ArchClawApp : Application() {
 
@@ -15,13 +14,9 @@ class ArchClawApp : Application() {
             private set
     }
 
-    lateinit var prootManager: ProotManager
-        private set
-
     override fun onCreate() {
         super.onCreate()
         instance = this
-        prootManager = ProotManager(this)
     }
 
     fun isSetupComplete(): Boolean =

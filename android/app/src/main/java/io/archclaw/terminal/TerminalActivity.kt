@@ -1,13 +1,14 @@
 package io.archclaw.terminal
 
 import android.os.Bundle
-import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import io.archclaw.ArchClawApp
+import io.archclaw.BootstrapManager
+import io.archclaw.ProcessManager
 import io.archclaw.R
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -21,6 +22,9 @@ class TerminalActivity : AppCompatActivity() {
     private lateinit var clearButton: ImageButton
     private lateinit var scrollView: ScrollView
 
+    private lateinit var bootstrapManager: BootstrapManager
+    private lateinit var processManager: ProcessManager
+
     private var shellProcess: Process? = null
     private var shellWriter: OutputStreamWriter? = null
     private var shellReader: BufferedReader? = null
@@ -30,6 +34,16 @@ class TerminalActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_terminal)
+
+        val filesDir = applicationContext.filesDir.absolutePath
+        val nativeLibDir = applicationContext.applicationInfo.nativeLibraryDir
+
+        bootstrapManager = BootstrapManager(applicationContext, filesDir, nativeLibDir)
+        processManager = ProcessManager(filesDir, nativeLibDir)
+
+        // Ensure directories exist
+        bootstrapManager.setupDirectories()
+        bootstrapManager.writeResolvConf()
 
         outputView = findViewById(R.id.outputView)
         inputView = findViewById(R.id.inputView)
@@ -46,8 +60,7 @@ class TerminalActivity : AppCompatActivity() {
 
     private fun startShell() {
         try {
-            val app = ArchClawApp.instance
-            if (!app.prootManager.isReady) {
+            if (!bootstrapManager.isBootstrapComplete()) {
                 appendText("""🐉 ArchClaw Terminal
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Environment not set up yet.
@@ -57,7 +70,7 @@ Please complete the setup wizard first.
                 return
             }
 
-            shellProcess = app.prootManager.startInteractiveShell()
+            shellProcess = processManager.startProotProcess("/bin/bash -l")
             shellWriter = OutputStreamWriter(shellProcess!!.outputStream)
             shellReader = BufferedReader(InputStreamReader(shellProcess!!.inputStream))
 

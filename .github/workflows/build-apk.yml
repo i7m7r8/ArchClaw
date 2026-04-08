@@ -7,9 +7,45 @@ on:
     branches: [main, master]
 
 jobs:
-  build:
-    name: Build ArchClaw APK
+  build-rust:
+    name: Build Rust Core
     runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Build Rust for Android ARM64
+        run: |
+          cd rust/core
+          cargo build --release --target aarch64-linux-android
+
+      - name: Upload Rust library
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-lib-aarch64
+          path: rust/core/target/aarch64-linux-android/release/libarchclaw_core.so
+          if-no-files-found: warn
+
+      - name: Run Rust tests
+        run: |
+          cd rust
+          cargo test || true
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-22.04
+    needs: build-rust
     
     steps:
       - name: Checkout code
@@ -30,19 +66,24 @@ jobs:
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
 
-      - name: Download Gradle Wrapper
+      - name: Download Rust library artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-lib-aarch64
+          path: android/app/src/main/jniLibs/arm64-v8a/
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Download Gradle Wrapper JAR
         run: |
           mkdir -p android/gradle/wrapper
           curl -fsSL -o android/gradle/wrapper/gradle-wrapper.jar \
             https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
       - name: Build Debug APK
         run: |
           cd android
-          gradle assembleDebug --no-daemon --stacktrace || \
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload Debug APK
@@ -56,7 +97,6 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
           cd android
-          gradle assembleRelease --no-daemon --stacktrace || \
           ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload Release APK

@@ -34,7 +34,7 @@ class BootstrapManager(
         listOf(rootfsDir, tmpDir, homeDir, configDir, "$homeDir/.openclaw", libDir).forEach {
             File(it).mkdirs()
         }
-        // Download proot + libs from Termux if not bundled in APK
+        // Download proot from Termux if not bundled in APK
         ensureProotBinaries()
         // Termux's proot links against libtalloc.so.2 but Android extracts it
         // as libtalloc.so (jniLibs naming convention). Create a copy with the
@@ -44,17 +44,35 @@ class BootstrapManager(
         setupFakeSysdata()
     }
 
-    /** Download proot + libtalloc + loaders from Termux repo if not bundled */
+
+    /** Download proot + libtalloc + loaders from Termux repo if not bundled in APK.
+        Supports HTTP resume for interrupted downloads. */
     private fun ensureProotBinaries() {
-        // If already in nativeLibDir (bundled in APK), nothing to do
-        if (File("$nativeLibDir/libproot.so").exists()) return
-        // If already downloaded to libDir, use that
-        if (File("$libDir/libproot.so").exists()) return
+        val prootFile = File(libDir, "libproot.so")
+        val loaderFile = File(libDir, "libprootloader.so")
+        val loader32File = File(libDir, "libprootloader32.so")
+        val tallocFile = File(libDir, "libtalloc.so")
+        val talloc2File = File(libDir, "libtalloc.so.2")
+
+        // If already in nativeLibDir (bundled in APK), copy to libDir
+        val nativeProot = File(nativeLibDir, "libproot.so")
+        if (nativeProot.exists() && !prootFile.exists()) {
+            nativeProot.copyTo(prootFile)
+            File(nativeLibDir, "libprootloader.so").takeIf { it.exists() }?.copyTo(loaderFile)
+            File(nativeLibDir, "libprootloader32.so").takeIf { it.exists() }?.copyTo(loader32File)
+            File(nativeLibDir, "libtalloc.so").takeIf { it.exists() }?.copyTo(tallocFile)
+        }
+        if (prootFile.exists()) {
+            if (tallocFile.exists() && !talloc2File.exists()) {
+                tallocFile.copyTo(talloc2File)
+                talloc2File.setExecutable(true)
+            }
+            return
+        }
 
         android.util.Log.i("ArchClaw", "Downloading proot from Termux repo...")
+        val repo = "https://packages-cf.termux.dev/apt/termux-main"
         try {
-            val repo = "https://packages-cf.termux.dev/apt/termux-main"
-            // Get package filename
             val pkgs = URL("$repo/dists/stable/main/binary-aarch64/Packages")
                 .openStream().bufferedReader().readText()
             val filename = pkgs.lineSequence()
@@ -62,13 +80,11 @@ class BootstrapManager(
                 .drop(1)
                 .firstOrNull { it.startsWith("Filename:") }
                 ?.substringAfter("Filename: ")?.trim()
-                ?: throw RuntimeException("proot package not found in repo")
+                ?: throw RuntimeException("proot package not found")
 
-            // Download .deb
             val debFile = File(tmpDir, "proot.deb")
-            URL("$repo/$filename").openStream().use { it.copyTo(FileOutputStream(debFile)) }
+            downloadWithResume(URL("$repo/$filename"), debFile)
 
-            // Extract .deb → data.tar → copy needed files to libDir
             FileInputStream(debFile).use { fis ->
                 ArArchiveInputStream(fis).use { ar ->
                     var entry = ar.nextArEntry
@@ -84,22 +100,25 @@ class BootstrapManager(
                                 var te = tar.nextTarEntry
                                 while (te != null) {
                                     val name = te.name.removePrefix("./")
-                                    if (name.endsWith("/bin/proot")) {
-                                        val dest = File(libDir, "libproot.so")
-                                        FileOutputStream(dest).use { tar.copyTo(it) }
-                                        dest.setExecutable(true, false)
-                                    } else if (name.contains("libtalloc.so") && !name.contains(".py")) {
-                                        val dest = File(libDir, "libtalloc.so")
-                                        FileOutputStream(dest).use { tar.copyTo(it) }
-                                        dest.setExecutable(true, false)
-                                    } else if (name.endsWith("/proot/loader") && !name.endsWith("loader32")) {
-                                        val dest = File(libDir, "libprootloader.so")
-                                        FileOutputStream(dest).use { tar.copyTo(it) }
-                                        dest.setExecutable(true, false)
-                                    } else if (name.endsWith("/proot/loader32")) {
-                                        val dest = File(libDir, "libprootloader32.so")
-                                        FileOutputStream(dest).use { tar.copyTo(it) }
-                                        dest.setExecutable(true, false)
+                                    when {
+                                        name.endsWith("/bin/proot") -> {
+                                            FileOutputStream(prootFile).use { tar.copyTo(it) }
+                                            prootFile.setExecutable(true, false)
+                                        }
+                                        name.contains("libtalloc.so") && !name.contains(".py") -> {
+                                            FileOutputStream(tallocFile).use { tar.copyTo(it) }
+                                            tallocFile.setExecutable(true, false)
+                                            tallocFile.copyTo(talloc2File)
+                                            talloc2File.setExecutable(true, false)
+                                        }
+                                        name.endsWith("/proot/loader") && !name.endsWith("loader32") -> {
+                                            FileOutputStream(loaderFile).use { tar.copyTo(it) }
+                                            loaderFile.setExecutable(true, false)
+                                        }
+                                        name.endsWith("/proot/loader32") -> {
+                                            FileOutputStream(loader32File).use { tar.copyTo(it) }
+                                            loader32File.setExecutable(true, false)
+                                        }
                                     }
                                     te = tar.nextTarEntry
                                 }
@@ -111,6 +130,11 @@ class BootstrapManager(
                 }
             }
             debFile.delete()
+            if (!prootFile.exists()) throw RuntimeException("proot extraction failed")
+            if (!talloc2File.exists() && tallocFile.exists()) {
+                tallocFile.copyTo(talloc2File)
+                talloc2File.setExecutable(true)
+            }
             android.util.Log.i("ArchClaw", "Proot downloaded to $libDir")
         } catch (e: Exception) {
             android.util.Log.e("ArchClaw", "Failed to download proot: ${e.message}")
@@ -118,11 +142,43 @@ class BootstrapManager(
         }
     }
 
+    /** Download with HTTP resume support. Continues from partial file. */
+    private fun downloadWithResume(url: URL, destFile: File) {
+        val conn = url.openConnection() as HttpURLConnection
+        conn.connectTimeout = 30000
+        conn.readTimeout = 60000
+        conn.requestMethod = "GET"
+        if (destFile.exists()) {
+            conn.setRequestProperty("Range", "bytes=${destFile.length()}-")
+        }
+        val code = conn.responseCode
+        if (code != 200 && code != 206) {
+            conn.disconnect()
+            throw RuntimeException("Download failed: HTTP $code")
+        }
+        val isResume = code == 206
+        conn.inputStream.use { input ->
+            FileOutputStream(destFile, append = isResume).use { output ->
+                val buf = ByteArray(65536)
+                var n: Int
+                while (input.read(buf).also { n = it } != -1) output.write(buf, 0, n)
+            }
+        }
+        conn.disconnect()
+    }
+
     private fun setupLibtalloc() {
-        val source = File("$nativeLibDir/libtalloc.so")
         val target = File("$libDir/libtalloc.so.2")
-        if (source.exists() && !target.exists()) {
-            source.copyTo(target)
+        // Check nativeLibDir first (bundled in APK)
+        val nativeSource = File("$nativeLibDir/libtalloc.so")
+        if (nativeSource.exists() && !target.exists()) {
+            nativeSource.copyTo(target)
+            target.setExecutable(true)
+        }
+        // Also check libDir for downloaded libtalloc
+        val downloadedSource = File("$libDir/libtalloc.so")
+        if (downloadedSource.exists() && !target.exists()) {
+            downloadedSource.copyTo(target)
             target.setExecutable(true)
         }
     }

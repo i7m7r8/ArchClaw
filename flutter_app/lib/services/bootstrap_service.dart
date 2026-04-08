@@ -82,18 +82,19 @@ class BootstrapService {
           rootfsResolv.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
-      final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
+      final tarPath = '$filesDir/tmp/archlinux-rootfs.tar.gz';
 
-      _updateSetupNotification('Downloading Ubuntu rootfs...', progress: 5);
+      _updateSetupNotification('Downloading Arch Linux rootfs...', progress: 5);
       onProgress(const SetupState(
         step: SetupStep.downloadingRootfs,
         progress: 0.0,
-        message: 'Downloading Ubuntu rootfs...',
+        message: 'Downloading Arch Linux rootfs...',
       ));
 
       await _dio.download(
         rootfsUrl,
         tarPath,
+        options: Options(headers: {"Accept-Encoding": "*"}),
         onReceiveProgress: (received, total) {
           if (total > 0) {
             final progress = received / total;
@@ -206,6 +207,7 @@ class BootstrapService {
       await _dio.download(
         nodeTarUrl,
         nodeTarPath,
+        options: Options(headers: {"Accept-Encoding": "*"}),
         onReceiveProgress: (received, total) {
           if (total > 0) {
             final progress = 0.3 + (received / total) * 0.4;

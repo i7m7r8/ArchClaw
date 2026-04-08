@@ -25,11 +25,11 @@ class AppConstants {
   static const int gatewayPort = 18789;
   static const String gatewayUrl = 'http://$gatewayHost:$gatewayPort';
 
-  static const String ubuntuRootfsUrl =
+  static const String archlinuxRootfsUrl =
       'https://archlinuxarm.org/os/';
-  static const String rootfsArm64 = '${ubuntuRootfsUrl}ArchLinuxARM-aarch64-latest.tar.gz';
-  static const String rootfsArmhf = '${ubuntuRootfsUrl}armhf.tar.gz';
-  static const String rootfsAmd64 = '${ubuntuRootfsUrl}amd64.tar.gz';
+  static const String rootfsArm64 = '${archlinuxRootfsUrl}ArchLinuxARM-aarch64-latest.tar.gz';
+  static const String archlinuxRootfsArmhf = '${archlinuxRootfsUrl}ArchLinuxARM-armv7-latest.tar.gz';
+  static const String archlinuxRootfsAmd64 = '${archlinuxRootfsUrl}ArchLinuxARM-x86_64-latest.tar.gz';
 
   // Node.js binary tarball — downloaded directly by Flutter, extracted by Java.
   // Bypasses curl/gpg/NodeSource which fail inside proot.
@@ -68,9 +68,9 @@ class AppConstants {
       case 'aarch64':
         return rootfsArm64;
       case 'arm':
-        return rootfsArmhf;
+        return archlinuxRootfsArmhf;
       case 'x86_64':
-        return rootfsAmd64;
+        return archlinuxRootfsAmd64;
       default:
         return rootfsArm64;
     }

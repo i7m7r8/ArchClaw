@@ -7,45 +7,9 @@ on:
     branches: [main, master]
 
 jobs:
-  build-rust:
-    name: Build Rust Core (aarch64)
-    runs-on: ubuntu-22.04
-    continue-on-error: true
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Install build deps
-        run: sudo apt-get update && sudo apt-get install -y llvm lld pkg-config libssl-dev
-
-      - name: Cache Rust deps
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-
-      - name: Build Rust for Android ARM64
-        run: |
-          cd rust/core
-          cargo build --release --target aarch64-linux-android 2>&1 || echo "Rust build skipped"
-          find target/aarch64-linux-android/release -name "*.so" 2>/dev/null || true
-
-      - name: Upload Rust .so
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-lib-aarch64
-          path: rust/core/target/aarch64-linux-android/release/*.so
-          if-no-files-found: ignore
-
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
-    needs: build-rust
     
     steps:
       - name: Checkout code
@@ -60,10 +24,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          gradle-version: '8.5'
+          flutter-version: '3.24.0'
+          cache: true
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
@@ -73,47 +38,22 @@ jobs:
           chmod +x scripts/fetch-proot-binaries.sh
           ./scripts/fetch-proot-binaries.sh
 
-      - name: Download Rust .so artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-lib-aarch64
-          path: android/app/src/main/jniLibs/arm64-v8a/
-        continue-on-error: true
-
       - name: Show jniLibs
         run: find android/app/src/main/jniLibs/ -type f 2>/dev/null || echo "No jniLibs"
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
-      - name: Download Gradle Wrapper JAR
+      - name: Flutter pub get
         run: |
-          mkdir -p android/gradle/wrapper
-          curl -fsSL -o android/gradle/wrapper/gradle-wrapper.jar \
-            https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar
+          cd flutter_app
+          flutter pub get
 
-      - name: Build Debug APK
+      - name: Build Flutter APK
         run: |
-          cd android
-          gradle assembleDebug --no-daemon --stacktrace
+          cd flutter_app
+          flutter build apk --release --target-platform android-arm64
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: archclaw-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
-
-      - name: Build Release APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        run: |
-          cd android
-          gradle assembleRelease --no-daemon --stacktrace
-
-      - name: Upload Release APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: actions/upload-artifact@v4
-        with:
           name: archclaw-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: warn

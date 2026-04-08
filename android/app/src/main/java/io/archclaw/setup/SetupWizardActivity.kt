@@ -53,17 +53,25 @@ class SetupWizardActivity : AppCompatActivity() {
                 app.prootManager.setupProgress().collect { step ->
                     withContext(Dispatchers.Main) {
                         when (step) {
-                            is SetupStep.CheckingProotDistro -> {
+                            is SetupStep.CheckingEnvironment -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Checking proot-distro..."
+                                statusText.text = "Checking environment..."
                             }
-                            is SetupStep.InstallingArchLinux -> {
+                            is SetupStep.DownloadingProot -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Installing Arch Linux..."
+                                statusText.text = "Downloading proot..."
                             }
-                            is SetupStep.InstallingDependencies -> {
+                            is SetupStep.DownloadingRootfs -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Installing base packages..."
+                                statusText.text = "Downloading Arch Linux..."
+                            }
+                            is SetupStep.ExtractingRootfs -> {
+                                progressBar.isIndeterminate = true
+                                statusText.text = "Extracting rootfs..."
+                            }
+                            is SetupStep.Bootstrapping -> {
+                                progressBar.isIndeterminate = true
+                                statusText.text = "Bootstrapping Arch Linux..."
                             }
                             is SetupStep.InstallingNodeJS -> {
                                 progressBar.isIndeterminate = true

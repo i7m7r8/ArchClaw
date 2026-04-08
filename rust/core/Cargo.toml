@@ -18,5 +18,6 @@ tracing.workspace = true
 once_cell.workspace = true
 
 [lib]
-name = "archclaw_core"
+name = "archclaw"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]

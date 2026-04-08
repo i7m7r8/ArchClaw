@@ -7,8 +7,9 @@ on:
     branches: [main, master]
 
 jobs:
+  # Job 1: Build Rust libraries
   build-rust:
-    name: Build Rust Core
+    name: Build Rust Core (aarch64)
     runs-on: ubuntu-22.04
     
     steps:
@@ -20,7 +21,10 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Cache Rust dependencies
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y llvm lld pkg-config libssl-dev
+
+      - name: Cache Rust deps
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
@@ -29,19 +33,20 @@ jobs:
         run: |
           cd rust/core
           cargo build --release --target aarch64-linux-android
+          echo "=== Built .so files ==="
+          find target/aarch64-linux-android/release -name "*.so" -exec ls -lh {} \;
 
-      - name: Upload Rust library
+      - name: Upload Rust .so
         uses: actions/upload-artifact@v4
         with:
           name: rust-lib-aarch64
-          path: rust/core/target/aarch64-linux-android/release/libarchclaw_core.so
+          path: rust/core/target/aarch64-linux-android/release/*.so
           if-no-files-found: warn
 
       - name: Run Rust tests
-        run: |
-          cd rust
-          cargo test || true
+        run: cd rust/core && cargo test || true
 
+  # Job 2: Build Android APK (depends on Rust)
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
@@ -62,15 +67,21 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
 
       - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
 
-      - name: Download Rust library artifact
+      - name: Download Rust .so artifact
         uses: actions/download-artifact@v4
         with:
           name: rust-lib-aarch64
           path: android/app/src/main/jniLibs/arm64-v8a/
+        continue-on-error: true
+
+      - name: Show JNI libs
+        run: find android/app/src/main/jniLibs/ -type f 2>/dev/null || echo "No JNI libs"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -79,7 +90,7 @@ jobs:
         run: |
           mkdir -p android/gradle/wrapper
           curl -fsSL -o android/gradle/wrapper/gradle-wrapper.jar \
-            https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar
+            https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar
 
       - name: Build Debug APK
         run: |

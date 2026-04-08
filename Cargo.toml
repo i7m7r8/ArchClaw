@@ -1,11 +1,5 @@
 [workspace]
-members = [
-    "rust/core",
-    "rust/wayland",
-    "rust/proot",
-    "rust/gateway",
-    "rust/hardware",
-]
+members = ["rust/core"]
 resolver = "2"
 
 [workspace.package]

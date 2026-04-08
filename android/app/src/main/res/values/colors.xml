@@ -26,3 +26,4 @@
     <!-- Icon Circle Background -->
     <color name="icon_circle_background">#1A6366F1</color>
 </resources>
+    <color name="ic_launcher_background">#6366F1</color>

@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -26,7 +21,6 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
-        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -39,30 +33,25 @@
             </intent-filter>
         </activity>
 
-        <!-- Setup Wizard Activity -->
         <activity
             android:name=".setup.SetupWizardActivity"
             android:exported="false"
             android:theme="@style/Theme.ArchClaw.Setup" />
 
-        <!-- OAuth WebView Activity -->
         <activity
             android:name=".auth.OAuthWebViewActivity"
             android:exported="false"
             android:theme="@style/Theme.ArchClaw.Transparent" />
 
-        <!-- Terminal Activity -->
         <activity
             android:name=".terminal.TerminalActivity"
             android:exported="false"
             android:theme="@style/Theme.ArchClaw.Terminal" />
 
-        <!-- Dashboard Activity -->
         <activity
             android:name=".dashboard.DashboardActivity"
             android:exported="false" />
 
-        <!-- Foreground Service -->
         <service
             android:name=".service.ArchClawService"
             android:enabled="true"
@@ -73,7 +62,6 @@
                 android:value="AI tools execution" />
         </service>
 
-        <!-- File Provider for sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -83,10 +71,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <!-- Request legacy storage access -->
-        <uses-library
-            android:name="org.apache.http.legacy"
-            android:required="false" />
     </application>
 </manifest>

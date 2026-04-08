@@ -91,9 +91,9 @@ class SetupWizardActivity : AppCompatActivity() {
         }
 
         val rootfsMirrors = listOf(
+            "https://archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
             "https://mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
-            "https://eu.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
-            "https://de.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+            "https://mirror.sg.gs/archlinuxarm/os/multi/ArchLinuxARM-2026.01-aarch64-rootfs.tar.gz"
         )
         
         var rootfsDownloaded = false

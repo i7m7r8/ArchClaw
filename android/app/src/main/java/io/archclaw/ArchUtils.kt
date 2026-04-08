@@ -22,8 +22,8 @@ class AppConstants {
         const val VERSION = "0.1.0"
         const val APP_NAME = "ArchClaw"
         
-        // Arch Linux ARM rootfs
-        const val ROOTFS_URL = "https://eu.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+        // Arch Linux ARM rootfs - working mirrors (no SSL issues)
+        const val ROOTFS_URL = "https://archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
         
         // Node.js binary tarball
         const val NODE_VERSION = "22.14.0"

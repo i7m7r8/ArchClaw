@@ -1,10 +1,9 @@
-//! Hardware protocol module - Android capabilities exposed to AI
+//! Hardware protocol - Android capabilities exposed to AI
 
 use anyhow::Result;
 use tracing::info;
 
-/// Hardware capability enumeration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Capability {
     Camera,
     Flash,
@@ -33,58 +32,46 @@ impl Capability {
     }
 }
 
-/// Hardware protocol manager
 pub struct HardwareProtocol {
-    enabled_capabilities: Vec<Capability>,
-    websocket_port: u16,
+    enabled: Vec<Capability>,
+    port: u16,
 }
 
 impl HardwareProtocol {
     pub fn new(port: u16) -> Self {
         Self {
-            enabled_capabilities: Vec::new(),
-            websocket_port: port,
+            enabled: Vec::new(),
+            port,
         }
     }
 
-    /// Enable a hardware capability
-    pub fn enable(&mut self, capability: Capability) {
-        if !self.enabled_capabilities.contains(&capability) {
-            info!("Enabling capability: {:?}", capability);
-            self.enabled_capabilities.push(capability);
+    pub fn enable(&mut self, cap: Capability) {
+        if !self.enabled.contains(&cap) {
+            info!("Enabling: {:?}", cap);
+            self.enabled.push(cap);
         }
     }
 
-    /// Disable a hardware capability
-    pub fn disable(&mut self, capability: &Capability) {
-        info!("Disabling capability: {:?}", capability);
-        self.enabled_capabilities.retain(|c| c != capability);
+    pub fn disable(&mut self, cap: &Capability) {
+        info!("Disabling: {:?}", cap);
+        self.enabled.retain(|c| c != cap);
     }
 
-    /// Check if capability is enabled
-    pub fn is_enabled(&self, capability: &Capability) -> bool {
-        self.enabled_capabilities.contains(capability)
+    pub fn is_enabled(&self, cap: &Capability) -> bool {
+        self.enabled.contains(cap)
     }
 
-    /// Start WebSocket server
     pub async fn start(&self) -> Result<()> {
-        info!("Starting hardware WebSocket server on port {}", self.websocket_port);
-        // TODO: Implement WebSocket server
-        // 1. Create WebSocket server
-        // 2. Handle capability requests
-        // 3. Stream sensor data
+        info!("Starting hardware WebSocket on port {}", self.port);
         Ok(())
     }
 
-    /// Stop WebSocket server
     pub async fn stop(&self) -> Result<()> {
-        info!("Stopping hardware WebSocket server");
-        // TODO: Implement server shutdown
+        info!("Stopping hardware WebSocket");
         Ok(())
     }
 
-    /// Get list of enabled capabilities
     pub fn capabilities(&self) -> &[Capability] {
-        &self.enabled_capabilities
+        &self.enabled
     }
 }

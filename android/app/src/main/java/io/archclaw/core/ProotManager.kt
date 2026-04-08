@@ -1,7 +1,9 @@
 package io.archclaw.core
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -28,7 +30,15 @@ data class StorageInfo(val rootfsSizeBytes: Long, val rootfsExists: Boolean, val
 class ProotManager(private val context: Context) {
 
     companion object {
-        private const val ROOTFS_URL = "https://eu.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+        private const val TAG = "ProotManager"
+        
+        // Multiple mirrors - try each until one works
+        private val ROOTFS_MIRRORS = listOf(
+            "https://mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
+            "https://eu.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
+            "https://america.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz",
+            "https://asia.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+        )
         private const val PROOT_URL = "https://github.com/proot-me/proot-static-build/releases/download/v5.1.107/proot-aarch64"
     }
 
@@ -51,10 +61,26 @@ class ProotManager(private val context: Context) {
 
     fun setupProgress(): Flow<SetupStep> = flow {
         emit(SetupStep.DownloadingRootfs(0))
-        if (!File(rootfsDir, "usr/bin/bash").exists()) {
-            downloadRootfs { progress -> emit(SetupStep.DownloadingRootfs(progress)) }
-            emit(SetupStep.ExtractingRootfs)
-            extractRootfs()
+        
+        // Try each mirror until one works
+        var downloadSuccess = false
+        for (mirror in ROOTFS_MIRRORS) {
+            try {
+                Log.d(TAG, "Trying mirror: $mirror")
+                downloadRootfs(mirror) { progress ->
+                    emit(SetupStep.DownloadingRootfs(progress))
+                }
+                emit(SetupStep.ExtractingRootfs)
+                extractRootfs()
+                downloadSuccess = true
+                break
+            } catch (e: Exception) {
+                Log.w(TAG, "Mirror failed: $mirror - ${e.message}")
+                continue
+            }
+        }
+        if (!downloadSuccess) {
+            throw Exception("All mirrors failed. Check network connection.")
         }
 
         emit(SetupStep.InstallingProot)
@@ -81,11 +107,11 @@ class ProotManager(private val context: Context) {
         emit(SetupStep.Complete)
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun downloadRootfs(onProgress: suspend (Int) -> Unit) {
+    private suspend fun downloadRootfs(url: String, onProgress: suspend (Int) -> Unit) {
         val tarFile = File(context.cacheDir, "archlinux-rootfs.tar.gz")
         if (tarFile.exists()) tarFile.delete()
 
-        val conn = URL(ROOTFS_URL).openConnection() as HttpURLConnection
+        val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 60000
         conn.readTimeout = 60000
         val totalSize = conn.contentLengthLong
@@ -95,36 +121,49 @@ class ProotManager(private val context: Context) {
             FileOutputStream(tarFile).use { output ->
                 val buffer = ByteArray(65536)
                 var bytesRead: Int
+                var lastProgress = 0
                 while (input.read(buffer).also { bytesRead = it } != -1) {
                     output.write(buffer, 0, bytesRead)
                     downloaded += bytesRead
-                    if (totalSize > 0) onProgress((downloaded * 100 / totalSize).toInt())
+                    if (totalSize > 0) {
+                        val progress = (downloaded * 100 / totalSize).toInt()
+                        if (progress != lastProgress) {
+                            onProgress(progress)
+                            lastProgress = progress
+                        }
+                    }
                 }
             }
         }
         conn.disconnect()
+        
+        if (!tarFile.exists() || tarFile.length() == 0L) {
+            throw Exception("Downloaded file is empty")
+        }
     }
 
     private suspend fun extractRootfs() {
         val tarFile = File(context.cacheDir, "archlinux-rootfs.tar.gz")
         if (!tarFile.exists()) throw Exception("Rootfs tarball not found")
 
+        Log.d(TAG, "Extracting rootfs to ${rootfsDir.absolutePath}")
         val process = ProcessBuilder("tar", "xzf", tarFile.absolutePath, "-C", rootfsDir.absolutePath)
             .redirectErrorStream(true).start()
         val exitCode = process.waitFor()
         if (exitCode != 0) throw Exception("Extract failed (exit $exitCode)")
         tarFile.delete()
 
-        File(rootfsDir, "tmp").mkdirs()
-        File(rootfsDir, "proc").mkdirs()
-        File(rootfsDir, "sys").mkdirs()
-        File(rootfsDir, "dev").mkdirs()
-        File(rootfsDir, "run").mkdirs()
+        // Create required dirs
+        listOf("tmp", "proc", "sys", "dev", "dev/pts", "run").forEach {
+            File(rootfsDir, it).mkdirs()
+        }
         homeDir.mkdirs()
+        Log.d(TAG, "Rootfs extracted successfully")
     }
 
     private suspend fun installProotBinary() {
         if (prootBin.exists() && prootBin.canExecute()) return
+        Log.d(TAG, "Downloading proot")
         URL(PROOT_URL).openStream().use { input ->
             FileOutputStream(prootBin).use { output -> input.copyTo(output) }
         }
@@ -143,12 +182,12 @@ class ProotManager(private val context: Context) {
     private suspend fun installNodeJS() {
         executeInRootfs("pacman -S --noconfirm --needed nodejs npm")
         executeInRootfs("npm install -g openclaw")
-        executeInRootfs("npm install -g @qwen-code/qwen-code 2>/dev/null || echo 'Qwen Code install skipped'")
+        executeInRootfs("npm install -g @qwen-code/qwen-code 2>/dev/null || true")
     }
 
     private suspend fun installPython() {
         executeInRootfs("pacman -S --noconfirm --needed python python-pip")
-        executeInRootfs("pip install --break-system-packages aider-chat 2>/dev/null || echo 'Aider install skipped'")
+        executeInRootfs("pip install --break-system-packages aider-chat 2>/dev/null || true")
     }
 
     private suspend fun installAITools() {
@@ -156,14 +195,12 @@ class ProotManager(private val context: Context) {
         if (!zeroclawBin.exists()) {
             try {
                 executeInRootfs("curl -fsSL https://github.com/zeroclaw-labs/zeroclaw/releases/latest/download/zeroclaw-aarch64 -o /usr/local/bin/zeroclaw && chmod +x /usr/local/bin/zeroclaw")
-            } catch (_: Exception) {
-                // ZeroClaw install failed, will retry later
-            }
+            } catch (_: Exception) {}
         }
     }
 
     fun executeInRootfs(command: String): ProcessResult {
-        if (!isReady()) return ProcessResult("Error: Environment not ready. Run setup first.", 1)
+        if (!isReady()) return ProcessResult("Error: Environment not ready.", 1)
 
         val process = ProcessBuilder(
             prootBin.absolutePath,

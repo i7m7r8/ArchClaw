@@ -1,14 +1,20 @@
 package io.archclaw.terminal
 
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import io.archclaw.ArchClawApp
 import io.archclaw.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
@@ -25,6 +31,7 @@ class TerminalActivity : AppCompatActivity() {
     private var shellWriter: OutputStreamWriter? = null
     private var shellReader: BufferedReader? = null
     private var readThread: Thread? = null
+    private val outputBuffer = StringBuilder()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,47 +44,50 @@ class TerminalActivity : AppCompatActivity() {
         scrollView = findViewById(R.id.scrollView)
 
         sendButton.setOnClickListener { sendCommand() }
-        clearButton.setOnClickListener { outputView.text = "" }
+        clearButton.setOnClickListener { outputView.text = ""; outputBuffer.clear() }
         inputView.setOnEditorActionListener { _, _, _ -> sendCommand(); true }
 
         startShell()
     }
 
     private fun startShell() {
-        try {
-            val app = ArchClawApp.instance
-            if (!app.prootManager.isReady()) {
-                appendOutput("""
-🐉 ArchClaw Terminal
+        lifecycleScope.launch {
+            try {
+                val app = ArchClawApp.instance
+                if (!app.prootManager.isReady()) {
+                    appendText("""🐉 ArchClaw Terminal
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Environment not set up yet.
-Please run the setup wizard first.
+Please complete the setup wizard first.
+
 """)
-                return
-            }
-
-            shellProcess = app.prootManager.startInteractiveShell()
-            shellWriter = OutputStreamWriter(shellProcess!!.outputStream)
-            shellReader = BufferedReader(InputStreamReader(shellProcess!!.inputStream))
-
-            appendOutput("🐉 ArchClaw Terminal (Arch Linux)\nType 'exit' to close.\n\n")
-
-            // Start reader thread
-            readThread = Thread {
-                try {
-                    val buffer = CharArray(8192)
-                    var charsRead: Int
-                    while (shellReader?.read(buffer).also { charsRead = it ?: -1 } != -1) {
-                        val output = String(buffer, 0, charsRead)
-                        runOnUiThread { appendOutput(output) }
-                    }
-                } catch (e: Exception) {
-                    // Shell closed
+                    return@launch
                 }
-            }.apply { start() }
 
-        } catch (e: Exception) {
-            appendOutput("Error starting shell: ${e.message}\n")
+                // Use 'script' to allocate a real PTY
+                shellProcess = app.prootManager.startInteractiveShell()
+                shellWriter = OutputStreamWriter(shellProcess!!.outputStream)
+                shellReader = BufferedReader(InputStreamReader(shellProcess!!.inputStream))
+
+                appendText("🐉 ArchClaw Terminal (Arch Linux)\nType 'exit' to close.\n\n")
+
+                // Start reader thread
+                readThread = Thread {
+                    try {
+                        val buffer = CharArray(8192)
+                        var charsRead: Int
+                        while (shellReader?.read(buffer).also { charsRead = it ?: -1 } != -1) {
+                            val output = String(buffer, 0, charsRead)
+                            runOnUiThread { appendText(output) }
+                        }
+                    } catch (e: Exception) {
+                        // Shell closed or error
+                    }
+                }.apply { isDaemon = true; start() }
+
+            } catch (e: Exception) {
+                appendText("Error: ${e.message}\n")
+            }
         }
     }
 
@@ -96,13 +106,24 @@ Please run the setup wizard first.
             shellWriter?.write("$command\n")
             shellWriter?.flush()
         } catch (e: Exception) {
-            appendOutput("Error: ${e.message}\n")
+            appendText("\nError: ${e.message}\n")
         }
     }
 
-    private fun appendOutput(text: String) {
-        outputView.append(text)
+    private fun appendText(text: String) {
+        outputBuffer.append(text)
+        outputView.text = stripAnsi(outputBuffer.toString())
         scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+    }
+
+    /**
+     * Strip ANSI escape sequences for display in TextView
+     */
+    private fun stripAnsi(text: String): String {
+        return text.replace(Regex("\u001B\\[[;\\d]*[a-zA-Z]"), "")
+            .replace(Regex("\u001B\\][^\u0007]*\u0007"), "")
+            .replace("\u0007", "")
+            .replace("\u001B", "")
     }
 
     private fun stopShell() {
@@ -112,8 +133,10 @@ Please run the setup wizard first.
             shellWriter?.close()
             shellReader?.close()
             shellProcess?.waitFor()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         shellProcess?.destroy()
+        readThread?.interrupt()
     }
 
     override fun onDestroy() {

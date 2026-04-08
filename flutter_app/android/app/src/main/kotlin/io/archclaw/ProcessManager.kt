@@ -29,7 +29,12 @@ class ProcessManager(
             "#1 SMP PREEMPT_DYNAMIC Fri, 10 Oct 2025 00:00:00 +0000"
     }
 
-    fun getProotPath(): String = "$nativeLibDir/libproot.so"
+    fun getProotPath(): String {
+        // Check nativeLibDir first (bundled in APK), then libDir (downloaded)
+        val native = "$nativeLibDir/libproot.so"
+        val downloaded = "$filesDir/lib/libproot.so"
+        return if (File(native).exists()) native else downloaded
+    }
 
     // ================================================================
     // Host-side environment for proot binary itself.
@@ -40,8 +45,8 @@ class ProcessManager(
         // proot temp directory for its internal use
         "PROOT_TMP_DIR" to tmpDir,
         // Loader executables for proot's execve interception
-        "PROOT_LOADER" to "$nativeLibDir/libprootloader.so",
-        "PROOT_LOADER_32" to "$nativeLibDir/libprootloader32.so",
+        "PROOT_LOADER" to if (File("$nativeLibDir/libprootloader.so").exists()) "$nativeLibDir/libprootloader.so" else "$filesDir/lib/libprootloader.so",
+        "PROOT_LOADER_32" to if (File("$nativeLibDir/libprootloader32.so").exists()) "$nativeLibDir/libprootloader32.so" else "$filesDir/lib/libprootloader32.so",
         // LD_LIBRARY_PATH: proot itself needs libtalloc.so.2
         // This does NOT leak into the guest (env -i cleans it)
         "LD_LIBRARY_PATH" to "$libDir:$nativeLibDir",

@@ -10,6 +10,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.zip.GZIPInputStream
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
@@ -32,12 +34,88 @@ class BootstrapManager(
         listOf(rootfsDir, tmpDir, homeDir, configDir, "$homeDir/.openclaw", libDir).forEach {
             File(it).mkdirs()
         }
+        // Download proot + libs from Termux if not bundled in APK
+        ensureProotBinaries()
         // Termux's proot links against libtalloc.so.2 but Android extracts it
         // as libtalloc.so (jniLibs naming convention). Create a copy with the
         // correct SONAME so the dynamic linker finds it.
         setupLibtalloc()
         // Create fake /proc and /sys files for proot bind mounts
         setupFakeSysdata()
+    }
+
+    /** Download proot + libtalloc + loaders from Termux repo if not bundled */
+    private fun ensureProotBinaries() {
+        // If already in nativeLibDir (bundled in APK), nothing to do
+        if (File("$nativeLibDir/libproot.so").exists()) return
+        // If already downloaded to libDir, use that
+        if (File("$libDir/libproot.so").exists()) return
+
+        android.util.Log.i("ArchClaw", "Downloading proot from Termux repo...")
+        try {
+            val repo = "https://packages-cf.termux.dev/apt/termux-main"
+            // Get package filename
+            val pkgs = URL("$repo/dists/stable/main/binary-aarch64/Packages")
+                .openStream().bufferedReader().readText()
+            val filename = pkgs.lineSequence()
+                .dropWhile { it != "Package: proot" }
+                .drop(1)
+                .firstOrNull { it.startsWith("Filename:") }
+                ?.substringAfter("Filename: ")?.trim()
+                ?: throw RuntimeException("proot package not found in repo")
+
+            // Download .deb
+            val debFile = File(tmpDir, "proot.deb")
+            URL("$repo/$filename").openStream().use { it.copyTo(FileOutputStream(debFile)) }
+
+            // Extract .deb → data.tar → copy needed files to libDir
+            FileInputStream(debFile).use { fis ->
+                ArArchiveInputStream(fis).use { ar ->
+                    var entry = ar.nextArEntry
+                    while (entry != null) {
+                        if (entry.name.startsWith("data.tar")) {
+                            val decompressor: InputStream = when {
+                                entry.name.endsWith(".xz") -> XZCompressorInputStream(ar)
+                                entry.name.endsWith(".gz") -> GZIPInputStream(ar)
+                                entry.name.endsWith(".zst") -> ZstdCompressorInputStream(ar)
+                                else -> ar
+                            }
+                            TarArchiveInputStream(decompressor).use { tar ->
+                                var te = tar.nextTarEntry
+                                while (te != null) {
+                                    val name = te.name.removePrefix("./")
+                                    if (name.endsWith("/bin/proot")) {
+                                        val dest = File(libDir, "libproot.so")
+                                        FileOutputStream(dest).use { tar.copyTo(it) }
+                                        dest.setExecutable(true, false)
+                                    } else if (name.contains("libtalloc.so") && !name.contains(".py")) {
+                                        val dest = File(libDir, "libtalloc.so")
+                                        FileOutputStream(dest).use { tar.copyTo(it) }
+                                        dest.setExecutable(true, false)
+                                    } else if (name.endsWith("/proot/loader") && !name.endsWith("loader32")) {
+                                        val dest = File(libDir, "libprootloader.so")
+                                        FileOutputStream(dest).use { tar.copyTo(it) }
+                                        dest.setExecutable(true, false)
+                                    } else if (name.endsWith("/proot/loader32")) {
+                                        val dest = File(libDir, "libprootloader32.so")
+                                        FileOutputStream(dest).use { tar.copyTo(it) }
+                                        dest.setExecutable(true, false)
+                                    }
+                                    te = tar.nextTarEntry
+                                }
+                            }
+                            break
+                        }
+                        entry = ar.nextArEntry
+                    }
+                }
+            }
+            debFile.delete()
+            android.util.Log.i("ArchClaw", "Proot downloaded to $libDir")
+        } catch (e: Exception) {
+            android.util.Log.e("ArchClaw", "Failed to download proot: ${e.message}")
+            throw e
+        }
     }
 
     private fun setupLibtalloc() {

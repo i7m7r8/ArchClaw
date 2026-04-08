@@ -1,6 +1,7 @@
 package io.archclaw
 
 import android.app.Application
+import io.archclaw.core.ProotManager
 
 class ArchClawApp : Application() {
 
@@ -9,11 +10,18 @@ class ArchClawApp : Application() {
         const val KEY_SETUP_COMPLETE = "setup_complete"
         const val KEY_QWEN_OAUTH_TOKEN = "qwen_oauth_token"
         const val KEY_QWEN_OAUTH_EXPIRES = "qwen_oauth_expires"
+
+        lateinit var instance: ArchClawApp
+            private set
     }
+
+    lateinit var prootManager: ProotManager
+        private set
 
     override fun onCreate() {
         super.onCreate()
         instance = this
+        prootManager = ProotManager(filesDir)
     }
 
     fun isSetupComplete(): Boolean {
@@ -45,10 +53,5 @@ class ArchClawApp : Application() {
         val expiresAt = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .getLong(KEY_QWEN_OAUTH_EXPIRES, 0)
         return System.currentTimeMillis() > expiresAt
-    }
-
-    companion object {
-        lateinit var instance: ArchClawApp
-            private set
     }
 }

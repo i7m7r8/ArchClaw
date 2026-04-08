@@ -13,10 +13,6 @@ import androidx.core.app.NotificationCompat
 import io.archclaw.MainActivity
 import io.archclaw.R
 
-/**
- * Foreground Service - keeps AI tools running in background
- * Shows persistent notification with status
- */
 class ArchClawService : Service() {
 
     companion object {
@@ -33,19 +29,14 @@ class ArchClawService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_STICKY // Keep running
+        return START_STICKY
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                "ArchClaw Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Keeps AI tools running"
-            }
-            
+                CHANNEL_ID, "ArchClaw Service", NotificationManager.IMPORTANCE_LOW
+            ).apply { description = "Keeps AI tools running" }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }

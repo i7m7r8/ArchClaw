@@ -11,8 +11,7 @@ import kotlinx.coroutines.flow.flow
 class SetupViewModel : ViewModel() {
 
     fun setupProgress(): Flow<SetupStep> = flow {
-        val prootManager = ProotManager(ArchClawApp.instance)
-        
+        val prootManager = ProotManager(ArchClawApp.instance.filesDir)
         prootManager.setupProgress().collect { step ->
             emit(step)
         }

@@ -10,18 +10,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import io.archclaw.ArchClawApp
 import io.archclaw.R
-import io.archclaw.core.ProotManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Built-in Terminal Activity
- * Provides interactive shell access to Arch Linux environment
- */
 class TerminalActivity : AppCompatActivity() {
 
-    private lateinit var prootManager: ProotManager
     private lateinit var outputView: TextView
     private lateinit var inputView: EditText
     private lateinit var sendButton: ImageButton
@@ -32,34 +26,17 @@ class TerminalActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_terminal)
 
-        prootManager = (application as ArchClawApp).prootManager
-        setupUI()
-        
-        // Show welcome message
-        appendOutput("\n🐉 ArchClaw Terminal\n")
-        appendOutput("Arch Linux environment ready.\n")
-        appendOutput("Type 'exit' to close terminal.\n\n")
-    }
-
-    private fun setupUI() {
         outputView = findViewById(R.id.outputView)
         inputView = findViewById(R.id.inputView)
         sendButton = findViewById(R.id.sendButton)
         clearButton = findViewById(R.id.clearButton)
         scrollView = findViewById(R.id.scrollView)
 
-        sendButton.setOnClickListener {
-            executeCommand()
-        }
+        appendOutput("\n🐉 ArchClaw Terminal\nArch Linux environment ready.\nType 'exit' to close terminal.\n\n")
 
-        clearButton.setOnClickListener {
-            outputView.text = ""
-        }
-
-        inputView.setOnEditorActionListener { _, _, _ ->
-            executeCommand()
-            true
-        }
+        sendButton.setOnClickListener { executeCommand() }
+        clearButton.setOnClickListener { outputView.text = "" }
+        inputView.setOnEditorActionListener { _, _, _ -> executeCommand(); true }
     }
 
     private fun executeCommand() {
@@ -67,7 +44,7 @@ class TerminalActivity : AppCompatActivity() {
         if (command.isEmpty()) return
 
         inputView.setText("")
-        appendOutput("$ ${command}\n")
+        appendOutput("$ $command\n")
 
         if (command == "exit") {
             finish()
@@ -76,30 +53,22 @@ class TerminalActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                prootManager.executeInRootfs(command)
+                (application as ArchClawApp).prootManager.executeInRootfs(command)
             }
-            
-            if (result.output.isNotEmpty()) {
-                appendOutput(result.output)
-            }
-            
-            if (result.exitCode != 0) {
-                appendOutput("\n[Exit code: ${result.exitCode}]\n")
-            }
+            if (result.output.isNotEmpty()) appendOutput(result.output)
+            if (result.exitCode != 0) appendOutput("\n[Exit code: ${result.exitCode}]\n")
         }
     }
 
     private fun appendOutput(text: String) {
         runOnUiThread {
             outputView.append(text)
-            scrollView.post {
-                scrollView.fullScroll(ScrollView.FOCUS_DOWN)
-            }
+            scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
         }
     }
 
     companion object {
-        fun newIntent(context: android.content.Context) = 
+        fun newIntent(context: android.content.Context) =
             android.content.Intent(context, TerminalActivity::class.java)
     }
 }

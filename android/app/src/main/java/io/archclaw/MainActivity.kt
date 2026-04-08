@@ -14,15 +14,9 @@ import io.archclaw.service.ArchClawService
 import io.archclaw.setup.SetupWizardActivity
 import io.archclaw.terminal.TerminalActivity
 
-/**
- * Main Activity - Tool launcher screen
- * Shows setup status, Qwen OAuth status, and all AI tools
- */
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var prootManager: ProotManager
-    
-    // UI Elements
+    private lateinit var app: ArchClawApp
     private lateinit var setupCard: CardView
     private lateinit var authCard: CardView
     private lateinit var qwenCodeButton: Button
@@ -38,11 +32,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        prootManager = (application as ArchClawApp).prootManager
+        app = application as ArchClawApp
         setupUI()
         updateUI()
 
-        // Start foreground service
         val serviceIntent = Intent(this, ArchClawService::class.java)
         startForegroundService(serviceIntent)
     }
@@ -59,44 +52,30 @@ class MainActivity : AppCompatActivity() {
         terminalButton = findViewById(R.id.terminalButton)
         authStatusText = findViewById(R.id.authStatusText)
 
-        // Setup card - tap to redo setup
         setupCard.setOnClickListener {
             startActivity(SetupWizardActivity.newIntent(this))
         }
 
-        // Auth card - tap to login with Qwen OAuth
-        authCard.setOnClickListener {
-            startOAuthLogin()
-        }
+        authCard.setOnClickListener { startOAuthLogin() }
 
-        // Tool buttons
         qwenCodeButton.setOnClickListener { launchTool("qwen") }
         zeroClawButton.setOnClickListener { launchTool("zeroclaw") }
         openClawButton.setOnClickListener { launchTool("openclaw") }
         aiderButton.setOnClickListener { launchTool("aider") }
         claudeButton.setOnClickListener { launchTool("claude") }
         geminiButton.setOnClickListener { launchTool("gemini") }
-
-        // Terminal button
         terminalButton.setOnClickListener {
             startActivity(TerminalActivity.newIntent(this))
         }
     }
 
     private fun updateUI() {
-        val app = application as ArchClawApp
-        
-        // Check setup status
         setupCard.visibility = if (app.isSetupComplete()) View.GONE else View.VISIBLE
-
-        // Check OAuth status
         updateAuthStatus()
     }
 
     private fun updateAuthStatus() {
-        val app = application as ArchClawApp
         val token = app.getQwenOAuthToken()
-        
         if (token != null && !app.isQwenOAuthExpired()) {
             authStatusText.text = "✓ Qwen OAuth Active (2,000 req/day free)"
             authStatusText.setTextColor(getColor(R.color.success_green))
@@ -120,16 +99,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchTool(toolId: String) {
-        val app = application as ArchClawApp
-        
-        // Check if setup is complete
         if (!app.isSetupComplete()) {
             Toast.makeText(this, "Please complete setup first", Toast.LENGTH_SHORT).show()
             startActivity(SetupWizardActivity.newIntent(this))
             return
         }
 
-        // Check OAuth for Qwen tools
         val qwenTools = listOf("qwen", "zeroclaw", "openclaw", "aider")
         if (toolId in qwenTools) {
             val token = app.getQwenOAuthToken()
@@ -140,12 +115,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Launch tool
         try {
-            val process = prootManager.launchTool(toolId, mapOf(
-                "QWEN_ACCESS_TOKEN" to (app.getQwenOAuthToken() ?: "")
-            ))
-            
+            app.prootManager.launchTool(toolId)
             Toast.makeText(this, "Started $toolId", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to launch: ${e.message}", Toast.LENGTH_LONG).show()
@@ -154,8 +125,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val REQUEST_OAUTH = 1001
-        
-        fun newIntent(context: android.content.Context) = 
+
+        fun newIntent(context: android.content.Context) =
             android.content.Intent(context, MainActivity::class.java)
     }
 }

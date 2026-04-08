@@ -1,6 +1,5 @@
 package io.archclaw.setup
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -10,18 +9,15 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import io.archclaw.ArchClawApp
+import io.archclaw.MainActivity
+import io.archclaw.R
 import io.archclaw.core.ProotManager
 import io.archclaw.core.SetupStep
-import io.archclaw.MainActivity
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Setup Wizard - runs on first launch
- * Downloads Arch Linux rootfs, installs proot, Node.js, Python, AI tools
- */
 class SetupWizardActivity : AppCompatActivity() {
 
     private lateinit var progressBar: ProgressBar
@@ -33,17 +29,12 @@ class SetupWizardActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup_wizard)
 
-        // Check if already setup
         if ((application as ArchClawApp).isSetupComplete()) {
             startActivity(MainActivity.newIntent(this))
             finish()
             return
         }
 
-        setupUI()
-    }
-
-    private fun setupUI() {
         progressBar = findViewById(R.id.progressBar)
         progressText = findViewById(R.id.progressText)
         statusText = findViewById(R.id.statusText)
@@ -57,11 +48,11 @@ class SetupWizardActivity : AppCompatActivity() {
 
     private fun startSetup() {
         statusText.text = "Starting setup..."
-        
+        val app = application as ArchClawApp
+
         lifecycleScope.launch {
             try {
-                val prootManager = ProotManager(this@SetupWizardActivity)
-                
+                val prootManager = ProotManager(app.filesDir)
                 prootManager.setupProgress().collect { step ->
                     withContext(Dispatchers.Main) {
                         when (step) {
@@ -93,7 +84,7 @@ class SetupWizardActivity : AppCompatActivity() {
                             }
                             is SetupStep.InstallingAITools -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Installing AI tools (Qwen Code, ZeroClaw, OpenClaw)..."
+                                statusText.text = "Installing AI tools..."
                             }
                             is SetupStep.Complete -> {
                                 progressBar.isIndeterminate = false
@@ -110,7 +101,7 @@ class SetupWizardActivity : AppCompatActivity() {
                     statusText.text = "Error: ${e.message}"
                     startButton.visibility = View.VISIBLE
                     startButton.text = "Retry"
-                    Toast.makeText(this@SetupWizardActivity, 
+                    Toast.makeText(this@SetupWizardActivity,
                         "Setup failed: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -118,17 +109,14 @@ class SetupWizardActivity : AppCompatActivity() {
     }
 
     private fun onSetupComplete() {
-        (application as ArchClawApp).markSetupComplete()
-        
-        Toast.makeText(this, "Setup complete! Welcome to ArchClaw.", Toast.LENGTH_LONG).show()
-        
-        // Navigate to main app
+        (application as ArchClawApp).setSetupComplete()
+        Toast.makeText(this, "Setup complete!", Toast.LENGTH_LONG).show()
         startActivity(MainActivity.newIntent(this))
         finish()
     }
 
     companion object {
-        fun newIntent(context: android.content.Context) = 
+        fun newIntent(context: android.content.Context) =
             android.content.Intent(context, SetupWizardActivity::class.java)
     }
 }

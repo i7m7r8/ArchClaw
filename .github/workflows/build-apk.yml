@@ -50,14 +50,15 @@ jobs:
         run: |
           cd rust/core
           cargo build --release --target aarch64-linux-android
-          echo "=== Built .so files ==="
-          find target/aarch64-linux-android/release -name "*.so" -exec ls -lh {} \;
+          echo "=== Finding .so files ==="
+          find ../../target/aarch64-linux-android/release -name "*.so" -exec ls -lh {} \; 2>/dev/null
+          find ../../target -name "*.so" 2>/dev/null
 
       - name: Upload Rust .so
         uses: actions/upload-artifact@v4
         with:
           name: rust-lib-aarch64
-          path: rust/core/target/aarch64-linux-android/release/*.so
+          path: target/aarch64-linux-android/release/*.so
           if-no-files-found: warn
 
       - name: Run Rust tests (host)

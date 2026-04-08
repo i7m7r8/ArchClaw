@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="Theme.ArchClaw" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/qwen_purple</item>
+        <item name="colorPrimaryVariant">@color/qwen_purple</item>
+        <item name="colorOnPrimary">@color/text_primary</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+    
+    <!-- Setup Wizard Theme -->
+    <style name="Theme.ArchClaw.Setup" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+    
+    <!-- Transparent Theme for OAuth -->
+    <style name="Theme.ArchClaw.Transparent" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+    
+    <!-- Terminal Theme -->
+    <style name="Theme.ArchClaw.Terminal" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/terminal_background</item>
+        <item name="android:navigationBarColor">@color/terminal_background</item>
+        <item name="android:windowBackground">@color/terminal_background</item>
+    </style>
+</resources>

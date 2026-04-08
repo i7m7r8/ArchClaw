@@ -1,0 +1,22 @@
+[package]
+name = "archclaw-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+once_cell.workspace = true
+
+[lib]
+name = "archclaw_core"
+path = "src/lib.rs"

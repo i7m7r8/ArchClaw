@@ -1,0 +1,45 @@
+# Build outputs
+build/
+target/
+*.apk
+*.aab
+*.jar
+*.class
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+package-lock.json
+
+# Flutter
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/build/
+
+# Rust
+**/Cargo.lock
+
+# Android
+android/.gradle/
+android/.idea/
+android/app/.cxx/
+android/app/build/
+android/local.properties
+
+# Logs
+*.log
+logs/
+
+# Config (may contain secrets)
+config.json
+.env

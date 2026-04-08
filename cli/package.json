@@ -1,0 +1,39 @@
+{
+  "name": "archclaw",
+  "version": "0.1.0",
+  "description": "🐉 OpenClaw & AI Tools on Android - One-tap access to Claude Code, Codex CLI, Aider, and more",
+  "main": "bin/archclaw.js",
+  "bin": {
+    "archclaw": "bin/archclaw.js"
+  },
+  "scripts": {
+    "start": "node bin/archclaw.js",
+    "test": "echo \"Run: node bin/archclaw.js status\""
+  },
+  "keywords": [
+    "openclaw",
+    "claude",
+    "codex",
+    "aider",
+    "ai",
+    "coding",
+    "android",
+    "termux",
+    "arch-linux",
+    "llm"
+  ],
+  "author": "ArchClaw Team",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/archclaw/archclaw.git"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "fs-extra": "^11.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher Icon Foreground -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Dragon/Claw symbol -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,20
+            C40,20 28,32 28,46
+            C28,54 32,61 38,66
+            L34,80 L44,74
+            C47,75 51,76 54,76
+            C68,76 80,64 80,50
+            C80,36 68,20 54,20 Z" />
+    
+    <!-- Eye -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M48,40
+            C48,38 50,36 52,36
+            C54,36 56,38 56,40
+            C56,42 54,44 52,44
+            C50,44 48,42 48,40 Z" />
+</vector>

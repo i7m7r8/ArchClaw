@@ -1,0 +1,6 @@
+#!/bin/sh
+# Gradle wrapper script for Linux/macOS
+exec java -Xmx64m -Xms64m \
+    "-Dorg.gradle.appname=gradlew" \
+    -jar "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" \
+    "$@"

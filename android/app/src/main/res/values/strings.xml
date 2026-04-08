@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">ArchClaw</string>
+    
+    <!-- Setup Wizard -->
+    <string name="setup_title">🐉 Welcome to ArchClaw</string>
+    <string name="setup_subtitle">Qwen AI on Android - FREE</string>
+    <string name="setup_description">Setup will install:\n✓ Arch Linux environment\n✓ Qwen Code, ZeroClaw, OpenClaw\n✓ ~300MB download (one-time)</string>
+    <string name="setup_button">Start Setup</string>
+    
+    <!-- Main Screen -->
+    <string name="qwen_oauth_title">Qwen OAuth</string>
+    <string name="qwen_oauth_not_authenticated">Not authenticated - Tap to login</string>
+    <string name="qwen_oauth_authenticated">✓ Qwen OAuth Active (2,000 req/day free)</string>
+    <string name="qwen_oauth_button">Login with Qwen</string>
+    <string name="qwen_oauth_badge">✓ FREE  ✓ 2,000 req/day  ✓ No credit card</string>
+    
+    <!-- Tools -->
+    <string name="tools_qwen_title">Qwen Tools</string>
+    <string name="tools_qwen_badge">FREE</string>
+    <string name="tools_other_title">Other Tools (API key needed)</string>
+    
+    <!-- Tool Buttons -->
+    <string name="tool_qwen_code">Qwen Code\nOfficial CLI</string>
+    <string name="tool_zeroclaw">ZeroClaw\n&lt;5MB RAM</string>
+    <string name="tool_openclaw">OpenClaw\nGateway</string>
+    <string name="tool_aider">Aider\nPair Programming</string>
+    <string name="tool_claude">Claude Code\nAnthropic</string>
+    <string name="tool_gemini">Gemini CLI\nGoogle</string>
+    
+    <!-- Terminal -->
+    <string name="terminal_hint">$ Enter command...</string>
+    <string name="terminal_welcome">\n🐉 ArchClaw Terminal\nArch Linux environment ready.\nType \'exit\' to close terminal.\n\n</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">ArchClaw Service</string>
+    <string name="notification_channel_description">Keeps AI tools running</string>
+    <string name="notification_title">ArchClaw</string>
+    <string name="notification_text">AI tools running</string>
+    
+    <!-- Toast Messages -->
+    <string name="toast_setup_required">Please complete setup first</string>
+    <string name="toast_oauth_required">Please login with Qwen OAuth first</string>
+    <string name="toast_oauth_success">✓ Qwen OAuth authenticated!</string>
+    <string name="toast_tool_started">Started %s</string>
+    <string name="toast_tool_failed">Failed to launch: %s</string>
+</resources>

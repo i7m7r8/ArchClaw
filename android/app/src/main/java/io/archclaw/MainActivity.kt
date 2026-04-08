@@ -26,10 +26,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Start foreground service
-        try {
-            startForegroundService(Intent(this, ArchClawService::class.java))
-        } catch (_: Exception) {}
+        try { startForegroundService(Intent(this, ArchClawService::class.java)) } catch (_: Exception) {}
 
         setupCard = findViewById(R.id.setupCard)
         authCard = findViewById(R.id.authCard)
@@ -38,28 +35,23 @@ class MainActivity : AppCompatActivity() {
         qwenCodeButton = findViewById(R.id.qwenCodeButton)
         terminalButton = findViewById(R.id.terminalButton)
 
-        setupCard.setOnClickListener {
-            startActivity(Intent(this, SetupWizardActivity::class.java))
-        }
-
+        setupCard.setOnClickListener { startActivity(Intent(this, SetupWizardActivity::class.java)) }
         authCard.setOnClickListener { startOAuth() }
         authButton.setOnClickListener { startOAuth() }
+        terminalButton.setOnClickListener { startActivity(Intent(this, TerminalActivity::class.java)) }
 
         qwenCodeButton.setOnClickListener {
-            if (!ArchClawApp.instance.isSetupComplete()) {
+            val app = ArchClawApp.instance
+            if (!app.isSetupComplete()) {
                 Toast.makeText(this, "Complete setup first", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            if (ArchClawApp.instance.getQwenOAuthToken() == null) {
+            if (app.getQwenOAuthToken() == null) {
                 Toast.makeText(this, "Login with Qwen first", Toast.LENGTH_SHORT).show()
                 startOAuth()
                 return@setOnClickListener
             }
             Toast.makeText(this, "Starting Qwen Code...", Toast.LENGTH_SHORT).show()
-        }
-
-        terminalButton.setOnClickListener {
-            startActivity(Intent(this, TerminalActivity::class.java))
         }
 
         updateAuthStatus()
@@ -68,17 +60,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateAuthStatus()
-        // Hide setup card if complete
-        if (ArchClawApp.instance.isSetupComplete()) {
-            setupCard.visibility = View.GONE
-        }
+        if (ArchClawApp.instance.isSetupComplete()) setupCard.visibility = View.GONE
     }
 
     private fun startOAuth() {
-        startActivityForResult(
-            Intent(this, OAuthWebViewActivity::class.java),
-            1001
-        )
+        startActivityForResult(Intent(this, OAuthWebViewActivity::class.java), 1001)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -100,5 +86,10 @@ class MainActivity : AppCompatActivity() {
             authStatusText.setTextColor(getColor(R.color.text_secondary))
             authButton.text = "Login with Qwen"
         }
+    }
+
+    companion object {
+        fun newIntent(context: android.content.Context) =
+            android.content.Intent(context, MainActivity::class.java)
     }
 }

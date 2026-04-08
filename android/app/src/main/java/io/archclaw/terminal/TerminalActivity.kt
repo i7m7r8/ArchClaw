@@ -1,20 +1,14 @@
 package io.archclaw.terminal
 
 import android.os.Bundle
-import android.view.KeyEvent
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import io.archclaw.ArchClawApp
 import io.archclaw.R
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
@@ -51,43 +45,39 @@ class TerminalActivity : AppCompatActivity() {
     }
 
     private fun startShell() {
-        lifecycleScope.launch {
-            try {
-                val app = ArchClawApp.instance
-                if (!app.prootManager.isReady()) {
-                    appendText("""🐉 ArchClaw Terminal
+        try {
+            val app = ArchClawApp.instance
+            if (!app.prootManager.isReady) {
+                appendText("""🐉 ArchClaw Terminal
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Environment not set up yet.
 Please complete the setup wizard first.
 
 """)
-                    return@launch
-                }
-
-                // Use 'script' to allocate a real PTY
-                shellProcess = app.prootManager.startInteractiveShell()
-                shellWriter = OutputStreamWriter(shellProcess!!.outputStream)
-                shellReader = BufferedReader(InputStreamReader(shellProcess!!.inputStream))
-
-                appendText("🐉 ArchClaw Terminal (Arch Linux)\nType 'exit' to close.\n\n")
-
-                // Start reader thread
-                readThread = Thread {
-                    try {
-                        val buffer = CharArray(8192)
-                        var charsRead: Int
-                        while (shellReader?.read(buffer).also { charsRead = it ?: -1 } != -1) {
-                            val output = String(buffer, 0, charsRead)
-                            runOnUiThread { appendText(output) }
-                        }
-                    } catch (e: Exception) {
-                        // Shell closed or error
-                    }
-                }.apply { isDaemon = true; start() }
-
-            } catch (e: Exception) {
-                appendText("Error: ${e.message}\n")
+                return
             }
+
+            shellProcess = app.prootManager.startInteractiveShell()
+            shellWriter = OutputStreamWriter(shellProcess!!.outputStream)
+            shellReader = BufferedReader(InputStreamReader(shellProcess!!.inputStream))
+
+            appendText("🐉 ArchClaw Terminal (Arch Linux)\nType 'exit' to close.\n\n")
+
+            readThread = Thread {
+                try {
+                    val buffer = CharArray(8192)
+                    var charsRead: Int
+                    while (shellReader?.read(buffer).also { charsRead = it ?: -1 } != -1) {
+                        val output = String(buffer, 0, charsRead)
+                        runOnUiThread { appendText(output) }
+                    }
+                } catch (e: Exception) {
+                    // Shell closed
+                }
+            }.apply { isDaemon = true; start() }
+
+        } catch (e: Exception) {
+            appendText("Error: ${e.message}\n")
         }
     }
 
@@ -116,9 +106,6 @@ Please complete the setup wizard first.
         scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
     }
 
-    /**
-     * Strip ANSI escape sequences for display in TextView
-     */
     private fun stripAnsi(text: String): String {
         return text.replace(Regex("\u001B\\[[;\\d]*[a-zA-Z]"), "")
             .replace(Regex("\u001B\\][^\u0007]*\u0007"), "")
@@ -133,8 +120,7 @@ Please complete the setup wizard first.
             shellWriter?.close()
             shellReader?.close()
             shellProcess?.waitFor()
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
         shellProcess?.destroy()
         readThread?.interrupt()
     }

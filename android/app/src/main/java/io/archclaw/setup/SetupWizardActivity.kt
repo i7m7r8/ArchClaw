@@ -53,27 +53,21 @@ class SetupWizardActivity : AppCompatActivity() {
                 app.prootManager.setupProgress().collect { step ->
                     withContext(Dispatchers.Main) {
                         when (step) {
-                            is SetupStep.DownloadingRootfs -> {
-                                progressBar.isIndeterminate = false
-                                progressBar.progress = step.progress
-                                progressText.text = "${step.progress}%"
-                                statusText.text = "Downloading Arch Linux..."
-                            }
-                            is SetupStep.ExtractingRootfs -> {
+                            is SetupStep.CheckingProotDistro -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Extracting rootfs..."
+                                statusText.text = "Checking proot-distro..."
                             }
-                            is SetupStep.InstallingProot -> {
+                            is SetupStep.InstallingArchLinux -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Installing proot..."
+                                statusText.text = "Installing Arch Linux..."
                             }
-                            is SetupStep.Bootstrapping -> {
+                            is SetupStep.InstallingDependencies -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Bootstrapping..."
+                                statusText.text = "Installing base packages..."
                             }
                             is SetupStep.InstallingNodeJS -> {
                                 progressBar.isIndeterminate = true
-                                statusText.text = "Installing Node.js..."
+                                statusText.text = "Installing Node.js + OpenClaw..."
                             }
                             is SetupStep.InstallingPython -> {
                                 progressBar.isIndeterminate = true

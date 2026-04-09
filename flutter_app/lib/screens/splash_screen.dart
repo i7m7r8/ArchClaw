@@ -149,21 +149,41 @@ class _SplashScreenState extends State<SplashScreen>
             }
 
             // Reinstall openclaw if package.json is missing (#97)
+            // Retry up to 3 times — npm install can fail transiently (network, timeouts)
             if (!openclawOk && nodeOk) {
-              setState(() => _status = 'Reinstalling OpenClaw...');
-              try {
-                const wrapper = '/root/.openclaw/node-wrapper.js';
-                const nodeRun = 'node $wrapper';
-                const npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
-                await NativeBridge.runInProot(
-                  '$nodeRun $npmCli install -g openclaw',
-                  timeout: 1800,
-                );
-                await NativeBridge.createBinWrappers('openclaw');
-              } catch (_) {}
+              const wrapper = '/root/.openclaw/node-wrapper.js';
+              const nodeRun = 'node $wrapper';
+              const npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
+              bool openclawInstalled = false;
+              for (int attempt = 1; attempt <= 3; attempt++) {
+                setState(() => _status = 'Installing OpenClaw (attempt $attempt/3)...');
+                try {
+                  await NativeBridge.runInProot(
+                    '$nodeRun $npmCli install -g openclaw',
+                    timeout: 1800,
+                  );
+                  await NativeBridge.createBinWrappers('openclaw');
+                  // Verify it actually installed
+                  final newStatus = await NativeBridge.getBootstrapStatus();
+                  if (newStatus['openclawInstalled'] == true) {
+                    openclawInstalled = true;
+                    break;
+                  }
+                } catch (_) {
+                  // Retry on next attempt
+                }
+              }
+              if (!openclawInstalled) {
+                // All 3 attempts failed — send to setup wizard for full retry
+                setupComplete = false;
+              }
             }
 
-            setupComplete = await NativeBridge.isBootstrapComplete();
+            if (setupComplete == false) {
+              // Don't override — repair failed, go to setup wizard
+            } else {
+              setupComplete = await NativeBridge.isBootstrapComplete();
+            }
           }
         } catch (_) {}
       }

@@ -25,11 +25,12 @@ class AppConstants {
   static const int gatewayPort = 18789;
   static const String gatewayUrl = 'http://$gatewayHost:$gatewayPort';
 
+  // Official Arch Linux ARM mirror with GeoIP redirection (fastest auto-selected)
   static const String archlinuxRootfsUrl =
-      'https://mirror.yandex.ru/archlinux-arm/os/';
+      'http://os.archlinuxarm.org/os/';
   static const String rootfsArm64 = '${archlinuxRootfsUrl}ArchLinuxARM-aarch64-latest.tar.gz';
-  static const String rootfsArm = '${archlinuxRootfsUrl}armv7.tar.gz';
-  static const String rootfsX86_64 = '${archlinuxRootfsUrl}x86_64.tar.gz';
+  static const String rootfsArm = '${archlinuxRootfsUrl}ArchLinuxARM-armv7-latest.tar.gz';
+  static const String rootfsX86_64 = '${archlinuxRootfsUrl}ArchLinuxARM-x86_64-latest.tar.gz';
 
   // Node.js binary tarball — downloaded directly by Flutter, extracted by Java.
   // Bypasses curl/gpg/NodeSource which fail inside proot.

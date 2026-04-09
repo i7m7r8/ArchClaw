@@ -297,6 +297,32 @@ class BootstrapService {
         message: 'Bionic Bypass configured',
       ));
 
+      // Final verification: only mark complete if everything actually exists.
+      // Prevents the setup loop where OpenClaw npm install silently fails
+      // but the wizard still reports success (#loop-fix).
+      _updateSetupNotification('Verifying installation...', progress: 98);
+      onProgress(const SetupState(
+        step: SetupStep.configuringBypass,
+        progress: 0.95,
+        message: 'Verifying installation...',
+      ));
+      final verified = await NativeBridge.isBootstrapComplete();
+      if (!verified) {
+        // Something is still missing — report exactly what failed
+        final status = await NativeBridge.getBootstrapStatus();
+        final missing = <String>[];
+        if (status['rootfsExists'] != true) missing.add('rootfs');
+        if (status['binBashExists'] != true) missing.add('bash');
+        if (status['bypassInstalled'] != true) missing.add('bionic-bypass');
+        if (status['nodeInstalled'] != true) missing.add('node.js');
+        if (status['openclawInstalled'] != true) missing.add('openclaw');
+
+        throw Exception(
+          'Installation verification failed — missing: ${missing.join(", ")}. '
+          'Run setup again to complete the installation.'
+        );
+      }
+
       // Done
       _stopSetupService();
       onProgress(const SetupState(

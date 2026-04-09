@@ -56,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // Check optional package statuses
       final filesDir = await NativeBridge.getFilesDir();
-      final rootfs = '$filesDir/rootfs/ubuntu';
+      final rootfs = '$filesDir/rootfs/archlinux';
       final goInstalled = File('$rootfs/usr/bin/go').existsSync();
       final brewInstalled =
           File('$rootfs/home/linuxbrew/.linuxbrew/bin/brew').existsSync();

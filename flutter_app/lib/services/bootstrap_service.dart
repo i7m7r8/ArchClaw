@@ -82,13 +82,13 @@ class BootstrapService {
           rootfsResolv.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
-      final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
+      final tarPath = '$filesDir/tmp/archlinux-rootfs.tar.gz';
 
-      _updateSetupNotification('Downloading Ubuntu rootfs...', progress: 5);
+      _updateSetupNotification('Downloading Arch Linux rootfs...', progress: 5);
       onProgress(const SetupState(
         step: SetupStep.downloadingRootfs,
         progress: 0.0,
-        message: 'Downloading Ubuntu rootfs...',
+        message: 'Downloading Arch Linux rootfs...',
       ));
 
       await _dio.download(
@@ -150,7 +150,7 @@ class BootstrapService {
         'echo permissions_fixed',
       );
 
-      // --- Install base packages via apt-get (like Termux proot-distro) ---
+      // --- Install base packages via pacman (like Termux proot-distro) ---
       // Now that our proot matches Termux exactly (env -i, clean host env,
       // proper flags), dpkg works normally. No need for Java-side deb
       // extraction — let dpkg+tar handle it inside proot like Termux does.
@@ -160,7 +160,7 @@ class BootstrapService {
         progress: 0.1,
         message: 'Updating package lists...',
       ));
-      await NativeBridge.runInProot('apt-get update -y');
+      await NativeBridge.runInProot('pacman -Sy --noconfirm');
 
       _updateSetupNotification('Installing base packages...', progress: 52);
       onProgress(const SetupState(
@@ -183,8 +183,8 @@ class BootstrapService {
         'echo "Etc/UTC" > /etc/timezone',
       );
       await NativeBridge.runInProot(
-        'apt-get install -y --no-install-recommends '
-        'ca-certificates git python3 make g++ curl wget',
+        'pacman -S --noconfirm --needed '
+        'ca-certificates git python make g++ curl wget',
       );
 
       // Git config (.gitconfig) is written by installBionicBypass() on the

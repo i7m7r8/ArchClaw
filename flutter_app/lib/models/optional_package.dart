@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Metadata for an optional development tool that can be installed
-/// inside the proot Ubuntu environment.
+/// inside the proot Arch Linux environment.
 class OptionalPackage {
   final String id;
   final String name;
@@ -40,13 +40,13 @@ class OptionalPackage {
     installCommand:
         'set -e; '
         'echo ">>> Installing Go via apt..."; '
-        'apt-get update -qq && apt-get install -y golang; '
+        'pacman -Sy --noconfirm golang; '
         'go version; '
         'echo ">>> GO_INSTALL_COMPLETE"',
     uninstallCommand:
         'set -e; '
         'echo ">>> Removing Go..."; '
-        'apt-get remove -y golang golang-go && apt-get autoremove -y; '
+        'pacman -Rns --noconfirm golang; '
         'echo ">>> GO_UNINSTALL_COMPLETE"',
     checkPath: 'usr/bin/go',
     estimatedSize: '~150 MB',
@@ -63,7 +63,7 @@ class OptionalPackage {
         'set -e; '
         'echo ">>> Installing Homebrew (this may take a while)..."; '
         'touch /.dockerenv; '
-        'apt-get update -qq && apt-get install -y -qq '
+        'pacman -S --noconfirm --needed '
         'build-essential procps curl file git; '
         'NONINTERACTIVE=1 /bin/bash -c "\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; '
         r"grep -q 'linuxbrew' /root/.bashrc 2>/dev/null || {"
@@ -94,13 +94,13 @@ class OptionalPackage {
     installCommand:
         'set -e; '
         'echo ">>> Installing OpenSSH..."; '
-        'apt-get update -qq && apt-get install -y openssh-client openssh-server; '
+        'pacman -S --noconfirm openssh; '
         'ssh -V; '
         'echo ">>> SSH_INSTALL_COMPLETE"',
     uninstallCommand:
         'set -e; '
         'echo ">>> Removing OpenSSH..."; '
-        'apt-get remove -y openssh-client openssh-server && apt-get autoremove -y; '
+        'pacman -Rns --noconfirm openssh; '
         'echo ">>> SSH_UNINSTALL_COMPLETE"',
     checkPath: 'usr/bin/ssh',
     estimatedSize: '~10 MB',

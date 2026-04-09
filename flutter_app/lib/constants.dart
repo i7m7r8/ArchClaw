@@ -26,7 +26,7 @@ class AppConstants {
   static const String gatewayUrl = 'http://$gatewayHost:$gatewayPort';
 
   static const String ubuntuRootfsUrl =
-      'https://archlinuxarm.org/os/';
+      'https://mirror.yandex.ru/archlinux-arm/os/';
   static const String rootfsArm64 = '${ubuntuRootfsUrl}ArchLinuxARM-aarch64-latest.tar.gz';
   static const String rootfsArmhf = '${ubuntuRootfsUrl}armhf.tar.gz';
   static const String rootfsAmd64 = '${ubuntuRootfsUrl}amd64.tar.gz';

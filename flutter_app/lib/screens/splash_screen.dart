@@ -65,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
           resolvFile.writeAsStringSync(resolvContent);
         }
         // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);
@@ -150,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen>
 
             // Reinstall openclaw if package.json is missing (#97)
             if (!openclawOk && nodeOk) {
-              setState(() => _status = 'Reinstalling OpenClaw...');
+              setState(() => _status = 'Reinstalling ArchClaw...');
               try {
                 const wrapper = '/root/.openclaw/node-wrapper.js';
                 const nodeRun = 'node $wrapper';
@@ -203,7 +203,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'OpenClaw',
+                'ArchClaw.,
                 style: GoogleFonts.inter(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,

@@ -10,7 +10,7 @@ class PackageService {
   static Future<String> _getRootfsDir() async {
     if (_rootfsDir != null) return _rootfsDir!;
     final filesDir = await NativeBridge.getFilesDir();
-    _rootfsDir = '$filesDir/rootfs/ubuntu';
+    _rootfsDir = '$filesDir/rootfs/archlinux';
     return _rootfsDir!;
   }
 

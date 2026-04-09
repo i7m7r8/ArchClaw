@@ -76,7 +76,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
           resolvFile.writeAsStringSync(resolvContent);
         }
         // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);

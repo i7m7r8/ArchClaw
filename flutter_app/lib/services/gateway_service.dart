@@ -59,7 +59,7 @@ class GatewayService {
         resolvFile.writeAsStringSync(resolvContent);
       }
       // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-      final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+      final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
       if (!rootfsResolv.existsSync()) {
         rootfsResolv.parent.createSync(recursive: true);
         rootfsResolv.writeAsStringSync(resolvContent);
@@ -171,7 +171,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     if (!prootOk) {
       try {
         final filesDir = await NativeBridge.getFilesDir();
-        final configFile = File('$filesDir/rootfs/ubuntu/root/.openclaw/openclaw.json');
+        final configFile = File('$filesDir/rootfs/archlinux/root/.openclaw/openclaw.json');
         Map<String, dynamic> config = {};
         if (configFile.existsSync()) {
           try {
@@ -202,7 +202,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
   Future<void> _repairConfigFile() async {
     try {
       final filesDir = await NativeBridge.getFilesDir();
-      final configFile = File('$filesDir/rootfs/ubuntu/root/.openclaw/openclaw.json');
+      final configFile = File('$filesDir/rootfs/archlinux/root/.openclaw/openclaw.json');
       if (!configFile.existsSync()) return;
       final content = configFile.readAsStringSync();
       if (content.isEmpty) return;
@@ -323,7 +323,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
           resolvFile.writeAsStringSync(resolvContent);
         }
         // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);

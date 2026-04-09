@@ -76,7 +76,7 @@ class BootstrapService {
           resolvFile.writeAsStringSync(resolvContent);
         }
         // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);
@@ -254,12 +254,12 @@ class BootstrapService {
         message: 'Node.js installed',
       ));
 
-      // Step 4: Install OpenClaw (80-98%)
-      _updateSetupNotification('Installing OpenClaw...', progress: 82);
+      // Step 4: Install ArchClaw (80-98%)
+      _updateSetupNotification('Installing ArchClaw...', progress: 82);
       onProgress(const SetupState(
-        step: SetupStep.installingOpenClaw,
+        step: SetupStep.installingArchClaw.
         progress: 0.0,
-        message: 'Installing OpenClaw (this may take a few minutes)...',
+        message: 'Installing ArchClaw (this may take a few minutes)...',
       ));
       // Install openclaw — fork/exec works now with our Termux-matching proot.
       await NativeBridge.runInProot(
@@ -269,7 +269,7 @@ class BootstrapService {
 
       _updateSetupNotification('Creating bin wrappers...', progress: 92);
       onProgress(const SetupState(
-        step: SetupStep.installingOpenClaw,
+        step: SetupStep.installingArchClaw.
         progress: 0.7,
         message: 'Creating bin wrappers...',
       ));
@@ -278,17 +278,17 @@ class BootstrapService {
       // (reads package.json directly from rootfs filesystem — no escaping).
       await NativeBridge.createBinWrappers('openclaw');
 
-      _updateSetupNotification('Verifying OpenClaw...', progress: 96);
+      _updateSetupNotification('Verifying ArchClaw...', progress: 96);
       onProgress(const SetupState(
-        step: SetupStep.installingOpenClaw,
+        step: SetupStep.installingArchClaw.
         progress: 0.9,
-        message: 'Verifying OpenClaw...',
+        message: 'Verifying ArchClaw...',
       ));
       await NativeBridge.runInProot('openclaw --version || echo openclaw_installed');
       onProgress(const SetupState(
-        step: SetupStep.installingOpenClaw,
+        step: SetupStep.installingArchClaw.
         progress: 1.0,
-        message: 'OpenClaw installed',
+        message: 'ArchClaw installed',
       ));
 
       // Step 5: Bionic Bypass already installed (before node verification)

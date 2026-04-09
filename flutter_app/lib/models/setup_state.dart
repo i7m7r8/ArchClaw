@@ -3,7 +3,7 @@ enum SetupStep {
   downloadingRootfs,
   extractingRootfs,
   installingNode,
-  installingOpenClaw,
+  installingArchClaw.
   configuringBypass,
   complete,
   error,
@@ -44,13 +44,13 @@ class SetupState {
       case SetupStep.checkingStatus:
         return 'Checking status...';
       case SetupStep.downloadingRootfs:
-        return 'Downloading Ubuntu rootfs';
+        return 'Downloading Arch Linux rootfs';
       case SetupStep.extractingRootfs:
         return 'Extracting rootfs';
       case SetupStep.installingNode:
         return 'Installing Node.js';
-      case SetupStep.installingOpenClaw:
-        return 'Installing OpenClaw';
+      case SetupStep.installingArchClaw.
+        return 'Installing ArchClaw.;
       case SetupStep.configuringBypass:
         return 'Configuring Bionic Bypass';
       case SetupStep.complete:
@@ -70,7 +70,7 @@ class SetupState {
         return 2;
       case SetupStep.installingNode:
         return 3;
-      case SetupStep.installingOpenClaw:
+      case SetupStep.installingArchClaw.
         return 4;
       case SetupStep.configuringBypass:
         return 5;

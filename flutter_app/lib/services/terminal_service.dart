@@ -27,7 +27,7 @@ class TerminalService {
     final filesDir = await _channel.invokeMethod<String>('getFilesDir') ?? '';
     final nativeLibDir = await _channel.invokeMethod<String>('getNativeLibDir') ?? '';
 
-    final rootfsDir = '$filesDir/rootfs/ubuntu';
+    final rootfsDir = '$filesDir/rootfs/archlinux';
     final tmpDir = '$filesDir/tmp';
     final configDir = '$filesDir/config';
     final homeDir = '$filesDir/home';

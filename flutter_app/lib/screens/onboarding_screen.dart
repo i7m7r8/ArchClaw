@@ -91,7 +91,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           resolvFile.writeAsStringSync(resolvContent);
         }
         // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);
@@ -113,7 +113,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onboardingArgs.removeLast(); // remove '/bin/bash'
       onboardingArgs.addAll([
         '/bin/bash', '-lc',
-        'echo "=== OpenClaw Onboarding ===" && '
+        'echo "=== ArchClaw Onboarding ===" && '
         'echo "Configure your API keys and binding settings." && '
         'echo "TIP: Select Loopback (127.0.0.1) when asked for binding!" && '
         'echo "" && '
@@ -415,7 +415,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OpenClaw Onboarding'),
+        title: const Text('ArchClaw Onboarding'),
         leading: widget.isFirstRun
             ? null // no back button during first-run
             : IconButton(

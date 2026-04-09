@@ -71,7 +71,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
           resolvFile.writeAsStringSync(resolvContent);
         }
         // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+        final rootfsResolv = File('$filesDir/rootfs/archlinux/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
           rootfsResolv.writeAsStringSync(resolvContent);
@@ -89,7 +89,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
       configureArgs.removeLast(); // remove '/bin/bash'
       configureArgs.addAll([
         '/bin/bash', '-lc',
-        'echo "=== OpenClaw Configure ===" && '
+        'echo "=== ArchClaw Configure ===" && '
         'echo "Manage your gateway settings." && '
         'echo "" && '
         'openclaw configure; '
@@ -265,7 +265,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OpenClaw Configure'),
+        title: const Text('ArchClaw Configure'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),

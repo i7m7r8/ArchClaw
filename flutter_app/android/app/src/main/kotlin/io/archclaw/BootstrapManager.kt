@@ -158,7 +158,7 @@ class BootstrapManager(
         }
         val isResume = code == 206
         conn.inputStream.use { input ->
-            FileOutputStream(destFile, append = isResume).use { output ->
+            FileOutputStream(destFile, isResume).use { output ->
                 val buf = ByteArray(65536)
                 var n: Int
                 while (input.read(buf).also { n = it } != -1) output.write(buf, 0, n)

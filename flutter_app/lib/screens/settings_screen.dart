@@ -1,4 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'dart:convert';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -505,8 +507,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-}
-
   Widget _buildQwenOAuthSection() {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -518,13 +518,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const QwenOAuthScreen()),
+            MaterialPageRoute(builder: (_) => const QwenOAuthScreen()),
           );
         },
       ),
     );
   }
 
+}
 
 class QwenOAuthScreen extends StatefulWidget {
   const QwenOAuthScreen({super.key});
@@ -561,7 +562,7 @@ class _QwenOAuthScreenState extends State<QwenOAuthScreen> {
       }
       setState(() => _status = 'No valid token found. Run qwen in Termux first.');
     } catch (e) {
-      setState(() => _status = 'Error: \$e');
+      setState(() => _status = 'Error: $e');
     } finally {
       setState(() => _loading = false);
     }
@@ -579,7 +580,7 @@ class _QwenOAuthScreenState extends State<QwenOAuthScreen> {
     final expires = prefs.getInt('qwen_expires') ?? 0;
     if (token != null && expires > DateTime.now().millisecondsSinceEpoch) {
       final remaining = Duration(milliseconds: expires - DateTime.now().millisecondsSinceEpoch);
-      setState(() => _status = 'Active (expires in \${remaining.inHours}h)');
+      setState(() => _status = 'Active (expires in ${remaining.inHours}h)');
     } else {
       setState(() => _status = 'Not configured');
     }

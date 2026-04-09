@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +21,24 @@ class SettingsScreen extends StatefulWidget {
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
+  Widget _buildQwenOAuthSection() {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        leading: const Icon(Icons.login, color: Color(0xFF6366F1)),
+        title: const Text('Qwen OAuth'),
+        subtitle: const Text('Import Qwen Code OAuth token for AI access'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const QwenOAuthScreen()),
+          );
+        },
+      ),
+    );
+  }
+
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
@@ -187,7 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: const Text('ArchClaw'),
-                  subtitle: Text(_status['archclawInstalled'] == true
+                  subtitle: Text(_status['openclawInstalled'] == true
                       ? 'Installed'
                       : 'Not installed'),
                   leading: const Icon(Icons.cloud),
@@ -269,7 +289,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: const Text('GitHub'),
-                  subtitle: const Text('mithun50/archclaw-termux'),
+                  subtitle: const Text('mithun50/archclaw'),
                   leading: const Icon(Icons.code),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -295,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _sectionHeader(theme, AppConstants.orgName.toUpperCase()),
                 ListTile(
                   title: const Text('Instagram'),
-                  subtitle: const Text('@nexgenxplorer_nxg'),
+                  subtitle: const Text('@archclaw_archclaw'),
                   leading: const Icon(Icons.camera_alt),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -305,7 +325,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: const Text('YouTube'),
-                  subtitle: const Text('@nexgenxplorer'),
+                  subtitle: const Text('@archclaw'),
                   leading: const Icon(Icons.play_circle_fill),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -315,7 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: const Text('Play Store'),
-                  subtitle: const Text('NextGenX Apps'),
+                  subtitle: const Text('ArchClaw Apps'),
                   leading: const Icon(Icons.shop),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -345,20 +365,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!await downloadDir.exists()) {
         await downloadDir.create(recursive: true);
       }
-      return '$sdcard/Download/archclaw-snapshot.json';
+      return '$sdcard/Download/openclaw-snapshot.json';
     }
     // Fallback to app-private directory
     final dir = await getApplicationDocumentsDirectory();
-    return '${dir.path}/archclaw-snapshot.json';
+    return '${dir.path}/openclaw-snapshot.json';
   }
 
   Future<void> _exportSnapshot() async {
     try {
-      final archclawJson = await NativeBridge.readRootfsFile('root/.archclaw/archclaw.json');
+      final openclawJson = await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
       final snapshot = {
         'version': AppConstants.version,
         'timestamp': DateTime.now().toIso8601String(),
-        'archclawConfig': archclawJson,
+        'openclawConfig': openclawJson,
         'dashboardUrl': _prefs.dashboardUrl,
         'autoStart': _prefs.autoStartGateway,
         'nodeEnabled': _prefs.nodeEnabled,
@@ -400,10 +420,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final content = await file.readAsString();
       final snapshot = jsonDecode(content) as Map<String, dynamic>;
 
-      // Restore archclaw.json into rootfs
-      final archclawConfig = snapshot['archclawConfig'] as String?;
-      if (archclawConfig != null) {
-        await NativeBridge.writeRootfsFile('root/.archclaw/archclaw.json', archclawConfig);
+      // Restore openclaw.json into rootfs
+      final openclawConfig = snapshot['openclawConfig'] as String?;
+      if (openclawConfig != null) {
+        await NativeBridge.writeRootfsFile('root/.openclaw/openclaw.json', openclawConfig);
       }
 
       // Restore preferences
@@ -505,24 +525,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-  Widget _buildQwenOAuthSection() {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: const Icon(Icons.login, color: Color(0xFF6366F1)),
-        title: const Text('Qwen OAuth'),
-        subtitle: const Text('Import Qwen Code OAuth token for AI access'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const QwenOAuthScreen()),
-          );
-        },
-      ),
-    );
-  }
-
 }
 
 class QwenOAuthScreen extends StatefulWidget {

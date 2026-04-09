@@ -82,19 +82,18 @@ class BootstrapService {
           rootfsResolv.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
-      final tarPath = '$filesDir/tmp/archlinux-rootfs.tar.gz';
+      final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
 
-      _updateSetupNotification('Downloading Arch Linux rootfs...', progress: 5);
+      _updateSetupNotification('Downloading Ubuntu rootfs...', progress: 5);
       onProgress(const SetupState(
         step: SetupStep.downloadingRootfs,
         progress: 0.0,
-        message: 'Downloading Arch Linux rootfs...',
+        message: 'Downloading Ubuntu rootfs...',
       ));
 
       await _dio.download(
         rootfsUrl,
         tarPath,
-        options: Options(headers: {"Accept-Encoding": "*"}),
         onReceiveProgress: (received, total) {
           if (total > 0) {
             final progress = received / total;
@@ -207,7 +206,6 @@ class BootstrapService {
       await _dio.download(
         nodeTarUrl,
         nodeTarPath,
-        options: Options(headers: {"Accept-Encoding": "*"}),
         onReceiveProgress: (received, total) {
           if (total > 0) {
             final progress = 0.3 + (received / total) * 0.4;
@@ -254,12 +252,12 @@ class BootstrapService {
         message: 'Node.js installed',
       ));
 
-      // Step 4: Install ArchClaw (80-98%)
-      _updateSetupNotification('Installing ArchClaw...', progress: 82);
+      // Step 4: Install OpenClaw (80-98%)
+      _updateSetupNotification('Installing OpenClaw...', progress: 82);
       onProgress(const SetupState(
-        step: SetupStep.installingArchClaw.
+        step: SetupStep.installingOpenClaw,
         progress: 0.0,
-        message: 'Installing ArchClaw (this may take a few minutes)...',
+        message: 'Installing OpenClaw (this may take a few minutes)...',
       ));
       // Install openclaw — fork/exec works now with our Termux-matching proot.
       await NativeBridge.runInProot(
@@ -269,7 +267,7 @@ class BootstrapService {
 
       _updateSetupNotification('Creating bin wrappers...', progress: 92);
       onProgress(const SetupState(
-        step: SetupStep.installingArchClaw.
+        step: SetupStep.installingOpenClaw,
         progress: 0.7,
         message: 'Creating bin wrappers...',
       ));
@@ -278,17 +276,17 @@ class BootstrapService {
       // (reads package.json directly from rootfs filesystem — no escaping).
       await NativeBridge.createBinWrappers('openclaw');
 
-      _updateSetupNotification('Verifying ArchClaw...', progress: 96);
+      _updateSetupNotification('Verifying OpenClaw...', progress: 96);
       onProgress(const SetupState(
-        step: SetupStep.installingArchClaw.
+        step: SetupStep.installingOpenClaw,
         progress: 0.9,
-        message: 'Verifying ArchClaw...',
+        message: 'Verifying OpenClaw...',
       ));
       await NativeBridge.runInProot('openclaw --version || echo openclaw_installed');
       onProgress(const SetupState(
-        step: SetupStep.installingArchClaw.
+        step: SetupStep.installingOpenClaw,
         progress: 1.0,
-        message: 'ArchClaw installed',
+        message: 'OpenClaw installed',
       ));
 
       // Step 5: Bionic Bypass already installed (before node verification)

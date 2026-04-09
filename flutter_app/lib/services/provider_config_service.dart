@@ -67,7 +67,7 @@ class ProviderConfigService {
     final modelJson = jsonEncode(model);
 
     // Build the provider object with the model as an object containing `id`,
-    // not a bare string. ArchClaw expects: models: [{ id: "model-name" }].
+    // not a bare string. OpenClaw expects: models: [{ id: "model-name" }].
     // Writing a bare string causes config validation failure (#83, #88).
     final script = '''
 const fs = require("fs");

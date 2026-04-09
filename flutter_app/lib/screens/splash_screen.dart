@@ -150,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen>
 
             // Reinstall openclaw if package.json is missing (#97)
             if (!openclawOk && nodeOk) {
-              setState(() => _status = 'Reinstalling ArchClaw...');
+              setState(() => _status = 'Reinstalling OpenClaw...');
               try {
                 const wrapper = '/root/.openclaw/node-wrapper.js';
                 const nodeRun = 'node $wrapper';
@@ -203,7 +203,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'ArchClaw.,
+                'ArchClaw',
                 style: GoogleFonts.inter(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,

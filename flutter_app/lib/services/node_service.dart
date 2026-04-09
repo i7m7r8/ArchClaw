@@ -221,7 +221,7 @@ class NodeService {
       'maxProtocol': 3,
       'client': {
         'id': clientId,
-        'displayName': 'ArchClaw. Node',
+        'displayName': 'OpenClawX Node',
         'version': AppConstants.version,
         'platform': 'android',
         'deviceFamily': 'Android',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Metadata for an optional development tool that can be installed
-/// inside the proot Arch Linux environment.
+/// inside the proot Ubuntu environment.
 class OptionalPackage {
   final String id;
   final String name;

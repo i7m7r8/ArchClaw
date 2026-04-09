@@ -26,7 +26,7 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ArchClaw.),
+        title: const Text('ArchClaw'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -56,7 +56,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             StatusCard(
               title: 'Terminal',
-              subtitle: 'Open Arch Linux shell with ArchClaw.,
+              subtitle: 'Open Arch Linux shell with OpenClaw',
               icon: Icons.terminal,
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
@@ -72,7 +72,7 @@ class DashboardScreen extends StatelessWidget {
                 final subtitle = provider.state.isRunning
                     ? (token != null
                         ? 'Token: ${token.substring(0, (token.length > 8 ? 8 : token.length))}...'
-                        : 'Open ArchClaw dashboard in browser')
+                        : 'Open OpenClaw dashboard in browser')
                     : 'Start gateway first';
                 return StatusCard(
                   title: 'Web Dashboard',
@@ -193,7 +193,7 @@ class DashboardScreen extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'ArchClaw v${AppConstants.version}',
+                    'OpenClaw v${AppConstants.version}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

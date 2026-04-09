@@ -89,7 +89,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
       configureArgs.removeLast(); // remove '/bin/bash'
       configureArgs.addAll([
         '/bin/bash', '-lc',
-        'echo "=== ArchClaw Configure ===" && '
+        'echo "=== OpenClaw Configure ===" && '
         'echo "Manage your gateway settings." && '
         'echo "" && '
         'openclaw configure; '
@@ -265,7 +265,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ArchClaw Configure'),
+        title: const Text('OpenClaw Configure'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),

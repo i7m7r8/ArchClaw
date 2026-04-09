@@ -1,6 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
-import 'dart:convert';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -21,24 +18,6 @@ class SettingsScreen extends StatefulWidget {
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
-  Widget _buildQwenOAuthSection() {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: const Icon(Icons.login, color: Color(0xFF6366F1)),
-        title: const Text('Qwen OAuth'),
-        subtitle: const Text('Import Qwen Code OAuth token for AI access'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const QwenOAuthScreen()),
-          );
-        },
-      ),
-    );
-  }
-
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
@@ -77,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // Check optional package statuses
       final filesDir = await NativeBridge.getFilesDir();
-      final rootfs = '$filesDir/rootfs/archlinux';
+      final rootfs = '$filesDir/rootfs/ubuntu';
       final goInstalled = File('$rootfs/usr/bin/go').existsSync();
       final brewInstalled =
           File('$rootfs/home/linuxbrew/.linuxbrew/bin/brew').existsSync();
@@ -315,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _sectionHeader(theme, AppConstants.orgName.toUpperCase()),
                 ListTile(
                   title: const Text('Instagram'),
-                  subtitle: const Text('@archclaw_archclaw'),
+                  subtitle: const Text('@nexgenxplorer_nxg'),
                   leading: const Icon(Icons.camera_alt),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -325,7 +304,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 ListTile(
                   title: const Text('YouTube'),
-                  subtitle: const Text('@archclaw'),
+                  subtitle: const Text('@nexgenxplorer'),
                   leading: const Icon(Icons.play_circle_fill),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => launchUrl(
@@ -521,119 +500,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-class QwenOAuthScreen extends StatefulWidget {
-  const QwenOAuthScreen({super.key});
-
-  @override
-  State<QwenOAuthScreen> createState() => _QwenOAuthScreenState();
-}
-
-class _QwenOAuthScreenState extends State<QwenOAuthScreen> {
-  String _status = 'Not configured';
-  bool _loading = false;
-
-  Future<void> _importToken() async {
-    setState(() => _loading = true);
-    try {
-      final termuxToken = File('/data/data/com.termux/files/home/.qwen/oauth_creds.json');
-      if (termuxToken.existsSync()) {
-        final content = termuxToken.readAsStringSync();
-        final json = jsonDecode(content);
-        final token = json['access_token'] as String?;
-        final expiry = json['expiry_date'] as int?;
-        if (token != null && expiry != null && expiry > DateTime.now().millisecondsSinceEpoch) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('qwen_token', token);
-          await prefs.setInt('qwen_expires', expiry);
-          setState(() => _status = 'Active (imported from Termux)');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Qwen OAuth token imported!')),
-            );
-          }
-          return;
-        }
-      }
-      setState(() => _status = 'No valid token found. Run qwen in Termux first.');
-    } catch (e) {
-      setState(() => _status = 'Error: $e');
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStatus();
-  }
-
-  Future<void> _loadStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('qwen_token');
-    final expires = prefs.getInt('qwen_expires') ?? 0;
-    if (token != null && expires > DateTime.now().millisecondsSinceEpoch) {
-      final remaining = Duration(milliseconds: expires - DateTime.now().millisecondsSinceEpoch);
-      setState(() => _status = 'Active (expires in ${remaining.inHours}h)');
-    } else {
-      setState(() => _status = 'Not configured');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Qwen OAuth')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Status', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 4),
-                    Text(_status),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('To use Qwen OAuth:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('1. Open Termux and run: qwen'),
-            const Text('2. Complete the OAuth login flow'),
-            const Text('3. Return here and tap Import Token'),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _loading ? null : _importToken,
-                icon: _loading
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync),
-                label: Text(_loading ? 'Importing...' : 'Import Token from Termux'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              color: Colors.blue.withOpacity(0.1),
-              child: const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('The token gives you 2,000 free requests/day via Qwen Code. No API key or credit card needed.'),
-              ),
-            ),
-          ],
         ),
       ),
     );
